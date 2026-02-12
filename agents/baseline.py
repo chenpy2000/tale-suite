@@ -1,7 +1,8 @@
 import argparse
+import re
+
 import llm
 import numpy as np
-import re
 from tenacity import (
     retry,
     retry_if_exception,
@@ -87,7 +88,7 @@ class CoTAgent(tales.Agent):
         response = conversation.prompt(*args, **kwargs)
         # Force response computation if lazy
         if hasattr(response, "duration_ms"):
-            response.duration_ms() 
+            response.duration_ms()
         return response
 
     def _llm_call_from_messages(self, messages, *args, **kwargs):
@@ -107,7 +108,9 @@ class CoTAgent(tales.Agent):
         action = ""
 
         # Case 1: Standard format "Thought: ... Action: ..."
-        match = re.search(r"Thought:(.*?)Action:(.*)", response_text, re.DOTALL | re.IGNORECASE)
+        match = re.search(
+            r"Thought:(.*?)Action:(.*)", response_text, re.DOTALL | re.IGNORECASE
+        )
         if match:
             thought = match.group(1).strip()
             action = match.group(2).strip()
@@ -116,18 +119,18 @@ class CoTAgent(tales.Agent):
             match = re.search(r"Action:(.*)", response_text, re.DOTALL | re.IGNORECASE)
             if match:
                 action = match.group(1).strip()
-                thought = response_text[:match.start()].strip()
+                thought = response_text[: match.start()].strip()
             else:
                 # Case 3: No format, assume last line is action, rest is thought
-                lines = response_text.strip().split('\n')
+                lines = response_text.strip().split("\n")
                 if len(lines) > 0:
                     action = lines[-1].strip()
                     thought = "\n".join(lines[:-1]).strip()
-        
+
         # Cleanup quotes if present
         if action.startswith("`") and action.endswith("`"):
             action = action[1:-1]
-        
+
         return thought, action
 
     def act(self, obs, reward, done, infos):
@@ -138,7 +141,7 @@ class CoTAgent(tales.Agent):
             "seed": self.seed,
             "stream": False,
         }
-        
+
         # Model specific adjustments (copied from LLMAgent)
         if self.llm in [
             "claude-3.5-haiku",
@@ -155,7 +158,7 @@ class CoTAgent(tales.Agent):
         response_text = response.text()
 
         thought, action = self.parsing(response_text)
-        
+
         # Store the FULL response in history to maintain context of thoughts
         self.history.append((f"{obs}\n> ", f"{response_text}\n"))
 
@@ -237,9 +240,7 @@ def build_argparser(parser=None):
 
 register(
     name="baseline-cot",
-    desc=(
-        "Baseline Chain-of-Thought agent that generates thoughts before actions."
-    ),
+    desc=("Baseline Chain-of-Thought agent that generates thoughts before actions."),
     klass=CoTAgent,
     add_arguments=build_argparser,
 )
