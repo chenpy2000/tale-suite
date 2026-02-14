@@ -3,6 +3,7 @@ import logging
 import os
 import platform
 import re
+import subprocess
 from os.path import join as pjoin
 
 from tqdm import tqdm
@@ -35,6 +36,17 @@ class StripAnsiFormatter(logging.Formatter):
 
 def setup_logging(args):
     log.setLevel(logging.DEBUG)
+    git_commit = "unknown"
+    try:
+        git_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        ).stdout.strip()
+    except Exception:
+        pass
 
     def add_new_file_handler(logfile):
         fh = logging.FileHandler(logfile, mode="w")
@@ -57,7 +69,7 @@ def setup_logging(args):
         _emit_msg(f"server = {platform.uname()[1]}")
         _emit_msg(f"working_dir = {os.getcwd()}")
         _emit_msg(f"datetime = {datetime.datetime.now()}")
-        _emit_msg(f"git_commit = {os.popen('git rev-parse HEAD').read().strip()}")
+        _emit_msg(f"git_commit = {git_commit}")
 
         return fh
 

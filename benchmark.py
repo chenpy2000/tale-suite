@@ -148,6 +148,13 @@ def evaluate(agent, env_name, args):
                 f"Score: {info['score']}/{info['max_score']} ({info['score']/info['max_score']:.1%})"
             )
             action, stats = agent.act(obs, score, done, info)
+            stats = stats or {}
+            prompt_tokens = stats.get("nb_tokens_prompt", 0)
+            response_tokens = stats.get("nb_tokens_response", 0)
+            thinking_tokens = stats.get("nb_tokens_thinking", 0)
+            total_tokens = stats.get(
+                "nb_tokens", prompt_tokens + response_tokens + thinking_tokens
+            )
             log.debug(colored(f"> {action}", "green"))
 
             if args.debug:
@@ -186,8 +193,8 @@ def evaluate(agent, env_name, args):
                     "episode/highscore": highscore,
                     "episode/normalized_score": norm_score,
                     "episode/normalized_highscore": norm_highscore,
-                    "episode/token_usage": stats["nb_tokens"],
-                    "episode/token_usage_thinking": stats.get("nb_tokens_thinking", 0),
+                    "episode/token_usage": total_tokens,
+                    "episode/token_usage_thinking": thinking_tokens,
                 },
                 step=step,
             )
@@ -196,8 +203,8 @@ def evaluate(agent, env_name, args):
             results.append([
                 step, score, max_score, norm_score, moves,
                 prev_obs, action, feedback,
-                stats["prompt"], stats["response"], stats.get("thinking"),
-                stats["nb_tokens"], stats["nb_tokens_prompt"], stats["nb_tokens_response"], stats.get("nb_tokens_thinking", 0),
+                stats.get("prompt"), stats.get("response"), stats.get("thinking"),
+                total_tokens, prompt_tokens, response_tokens, thinking_tokens,
             ])
             # fmt: on
 
@@ -218,6 +225,7 @@ def evaluate(agent, env_name, args):
                 obs, info = env.reset()
                 obs = last_obs + "\n\n-= Restarting =-\n" + obs
                 agent.reset(obs, info, env_name)
+                done = False
                 nb_resets += 1
 
                 log.debug(f"{obs}")
