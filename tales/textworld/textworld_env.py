@@ -7,7 +7,6 @@ from . import textworld_data
 
 
 class TextWorldEnv(gym.Env):
-
     def __init__(self, gamefile, admissible_commands=False, *args, **kwargs):
         self.infos = textworld.EnvInfos(
             score=True,
@@ -24,6 +23,7 @@ class TextWorldEnv(gym.Env):
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed, options=options)
+        self.last_score = 0  # Initialize last_score at the start of each episode
 
         if self.env is None:
             self.env = textworld.start(self.gamefile, self.infos, wrappers=[Filter])
@@ -31,11 +31,16 @@ class TextWorldEnv(gym.Env):
         return self.env.reset()
 
     def step(self, action):
-        return self.env.step(action)
+        observation, score, done, info = self.env.step(action)
+
+        # Calculate reward (delta score) for this step
+        reward = score - self.last_score
+        self.last_score = score
+
+        return observation, reward, done, info
 
 
 class TWCookingEnv(TextWorldEnv):
-
     def __init__(self, difficulty, *args, **kwargs):
         self.gamefiles = sorted(textworld_data.get_cooking_game(difficulty))
         super().__init__(self.gamefiles[0], *args, **kwargs)
