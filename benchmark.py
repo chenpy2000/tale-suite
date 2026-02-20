@@ -422,6 +422,7 @@ def _maybe_load_agent_module():
                 f"{agent_dirname}.{agent_filename}", agent_file
             )
             module = importlib.util.module_from_spec(spec)
+            sys.modules[f"{agent_dirname}.{agent_filename}"] = module
             spec.loader.exec_module(module)
 
 
