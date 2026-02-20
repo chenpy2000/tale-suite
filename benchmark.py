@@ -148,6 +148,13 @@ def evaluate(agent, env_name, args):
                 f"Score: {info['score']}/{info['max_score']} ({info['score']/info['max_score']:.1%})"
             )
             action, stats = agent.act(obs, score, done, info)
+            stats = stats or {}
+            prompt_tokens = stats.get("nb_tokens_prompt", 0)
+            response_tokens = stats.get("nb_tokens_response", 0)
+            thinking_tokens = stats.get("nb_tokens_thinking", 0)
+            total_tokens = stats.get(
+                "nb_tokens", prompt_tokens + response_tokens + thinking_tokens
+            )
             log.debug(colored(f"> {action}", "green"))
 
             if args.debug:
@@ -186,7 +193,8 @@ def evaluate(agent, env_name, args):
                     "episode/highscore": highscore,
                     "episode/normalized_score": norm_score,
                     "episode/normalized_highscore": norm_highscore,
-                    "episode/token_usage": stats["nb_tokens"],
+                    "episode/token_usage": total_tokens,
+                    "episode/token_usage_thinking": thinking_tokens,
                 },
                 step=step,
             )
@@ -194,7 +202,9 @@ def evaluate(agent, env_name, args):
             # fmt: off
             results.append([
                 step, score, max_score, norm_score, moves,
-                prev_obs, action, feedback, stats["prompt"], stats["response"], stats.get("thinking"), stats["nb_tokens"]
+                prev_obs, action, feedback,
+                stats.get("prompt"), stats.get("response"), stats.get("thinking"),
+                total_tokens, prompt_tokens, response_tokens, thinking_tokens,
             ])
             # fmt: on
 
@@ -215,6 +225,7 @@ def evaluate(agent, env_name, args):
                 obs, info = env.reset()
                 obs = last_obs + "\n\n-= Restarting =-\n" + obs
                 agent.reset(obs, info, env_name)
+                done = False
                 nb_resets += 1
 
                 log.debug(f"{obs}")
@@ -256,7 +267,9 @@ def evaluate(agent, env_name, args):
     # fmt: off
     columns = [
         "Step", "Score", "Max Score", "Normalized Score", "Moves",
-        "Observation", "Action", "Feedback", "Prompt", "Response", "Thinking", "Token Usage"
+        "Observation", "Action", "Feedback",
+        "Prompt", "Response", "Thinking",
+        "Token Usage", "Prompt Tokens", "Response Tokens", "Thinking Tokens",
     ]
     # fmt: on
     df = pd.DataFrame(results, columns=columns)
@@ -270,6 +283,9 @@ def evaluate(agent, env_name, args):
         "total/Wins": stats["nb_wins"],
         "total/Resets": stats["nb_resets"],
         "total/Tokens": df["Token Usage"].sum(),
+        "total/Prompt Tokens": df["Prompt Tokens"].sum(),
+        "total/Response Tokens": df["Response Tokens"].sum(),
+        "total/Thinking Tokens": df["Thinking Tokens"].sum(),
         "final/Highscore": stats["highscore"],
         "final/Game Max Score": stats["max_score"],
         "final/Normalized Score": stats["norm_score"],
@@ -406,6 +422,7 @@ def _maybe_load_agent_module():
                 f"{agent_dirname}.{agent_filename}", agent_file
             )
             module = importlib.util.module_from_spec(spec)
+            sys.modules[f"{agent_dirname}.{agent_filename}"] = module
             spec.loader.exec_module(module)
 
 

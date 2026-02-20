@@ -1,7 +1,7 @@
 # TALES: Text-Adventure Learning Environment Suite
 This repository contains the files needed to benchmark language agents on a curated list of text-based games from the following frameworks: [Jericho](https://github.com/microsoft/jericho), [TextWorld](https://github.com/microsoft/textworld), [TextWorld-Express](https://github.com/cognitiveailab/TextWorldExpress), [ScienceWorld](https://github.com/allenai/ScienceWorld), [ALFWorld](https://github.com/alfworld/alfworld)).
 
-[[Technical Report](https://arxiv.org/abs/2504.14128)] [[Project Page](https://aka.ms/tales/)]
+[[Technical Report](https://arxiv.org/abs/2504.14128)] [[Project Page](https://t.co/rFPMRoqO9y)]
 
 ## 1. Installation
 
@@ -20,7 +20,7 @@ Then, install `tales` directly from PyPI:
 Alternatively, clone the repository and install locally:
 
     git clone https://github.com/microsoft/tale-suite
-    cd tales
+    cd tale-suite
     pip install -e .
 
 > [!WARNING]
@@ -28,12 +28,16 @@ Alternatively, clone the repository and install locally:
 >
 >     sudo apt update && apt install openjdk-8-jre-headless -y
 
+Alternatively, if the above isn't working:
+
+>      sudo apt-get update && apt-get install default-jre default-jdk
+
 ### Using Docker
 We provide a pre-built docker image at
 
     docker pull czcui/twb:prebuilt
 
-[Please see the following this docs page for more details on how to set up a local vllm for use with the text world benchmark.](https://docs.google.com/document/d/1Q5FtcNpYDpMLbyraJ1dSKxJLwOgLvWCECiPsnDkEq2Y/edit?usp=sharing)
+[Please see the following docs page for more details on how to set up a local vllm for use with the text world benchmark.](https://docs.google.com/document/d/1Q5FtcNpYDpMLbyraJ1dSKxJLwOgLvWCECiPsnDkEq2Y/edit?usp=sharing)
 
 An example script can be found in the scripts folder.
 
@@ -41,22 +45,27 @@ An example script can be found in the scripts folder.
 
 1.	Run benchmark evaluation on all the games for the specified random agent:
 
+    ```python
     python benchmark.py --agent agents/random.py random
 
 2.	Run benchmark evaluation on a subset of the games:
 
+    ```python
     python benchmark.py --agent agents/random.py random --env textworld
 
 3.	Run benchmark evaluation on specific games:
 
+    ```python
     python benchmark.py --agent agents/random.py random --envs JerichoEnvZork1 JerichoEnvDetective
 
 4.	Run benchmark evaluation using as a HumanAgent:
 
+    ```python
     python benchmark.py --agent agents/human.py human --envs TWCookingLevel1
 
 5.	Run benchmark evaluation where the ground-truth walkthrough is being followed:
 
+    ```python
     python benchmark.py --agent agents/walkthrough.py walkthrough --envs JerichoEnvZork1
 
 
@@ -66,11 +75,11 @@ In order to benchmark a given LLM acting as language agent playing text-based ga
 
     python benchmark.py --agent agents/llm.py zero-shot --envs TWCookingLevel1
 
-### API-based LLMS
+### API-based LLMs
 
 `llm` natively supports OpenAI models and self-hosted models that offer an OpenAI-compatible API (e.g. like vLLM does - more on this below).
 
-### Adding support to other LLMS
+### Adding support to other LLMs
 
 `llm` offers different plugins to include other LLMs. E.g.
 

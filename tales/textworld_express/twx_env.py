@@ -7,16 +7,44 @@ from . import twx_data
 TASKS = twx_data.TASKS
 
 
+def _patch_twx_destructor():
+    if getattr(twx.TextWorldExpressEnv, "_tales_safe_del", False):
+        return
+
+    original_del = getattr(twx.TextWorldExpressEnv, "__del__", None)
+
+    def _safe_del(self):
+        if original_del is None:
+            return
+        try:
+            original_del(self)
+        except (BrokenPipeError, OSError, EOFError):
+            # Third-party shutdown can fail if the Java subprocess already exited.
+            pass
+
+    twx.TextWorldExpressEnv.__del__ = _safe_del
+    twx.TextWorldExpressEnv._tales_safe_del = True
+
+
+_patch_twx_destructor()
+
+
 class TextWorldExpressEnv(gym.Env):
 
     def __init__(
-        self, game_name, game_params, admissible_commands=False, *args, **kwargs
+        self,
+        game_name,
+        game_params,
+        admissible_commands=False,
+        split="test",
+        *args,
+        **kwargs,
     ):
         self.game_name = game_name
         self.game_params = game_params
         self.admissible_commands = admissible_commands
         self.env = twx.TextWorldExpressEnv(envStepLimit=np.inf)
-        self.seeds = twx_data.get_seeds(split="test", env=self.env)
+        self.seeds = twx_data.get_seeds(split=split, env=self.env)
         self.seed = self.seeds[0]
 
     def reset(self, *, seed=None, options=None):
@@ -56,4 +84,12 @@ class TextWorldExpressEnv(gym.Env):
         return obs, reward, done, info
 
     def close(self):
-        self.env.close()
+        if self.env is None:
+            return
+
+        try:
+            self.env.close()
+        except (BrokenPipeError, OSError, EOFError):
+            pass
+        finally:
+            self.env = None

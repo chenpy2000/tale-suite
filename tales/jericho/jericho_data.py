@@ -1,5 +1,6 @@
 import json
 import os
+from importlib.resources import files as importlib_files
 from os.path import join as pjoin
 
 from tales.config import TALES_CACHE_HOME, TALES_FORCE_DOWNLOAD
@@ -9,7 +10,7 @@ GAMES_URLS = "https://github.com/BYU-PCCL/z-machine-games/raw/master/jericho-gam
 TALES_CACHE_JERICHO = pjoin(TALES_CACHE_HOME, "jericho")
 
 
-with open(pjoin(os.path.dirname(__file__), "games.json")) as f:
+with open(importlib_files("tales") / "jericho" / "games.json") as f:
     GAMES_INFOS = json.load(f)
 
 # Remove known games that are not working.
