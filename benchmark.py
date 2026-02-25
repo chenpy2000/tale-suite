@@ -19,6 +19,7 @@ from tqdm import tqdm
 import tales
 from tales.logger import log, setup_logging
 from tales.utils import NumpyEncoder
+from tales.metrics import compute_token_efficiency, compute_doom_loop_count
 
 os.environ["WANDB_MODE"] = "disabled"
 
@@ -273,6 +274,15 @@ def evaluate(agent, env_name, args):
     ]
     # fmt: on
     df = pd.DataFrame(results, columns=columns)
+    
+    # Compute operational efficiency and doom loop metrics
+    total_tokens = df["Token Usage"].sum()
+    token_efficiency = compute_token_efficiency(total_tokens, highscore)
+    doom_loop_count = compute_doom_loop_count(df)
+    
+    stats["token_efficiency"] = token_efficiency
+    stats["doom_loop_count"] = doom_loop_count
+
     df.to_json(rollouts_file, orient="records", lines=True)
 
     wandb_stats = {
@@ -290,6 +300,8 @@ def evaluate(agent, env_name, args):
         "final/Game Max Score": stats["max_score"],
         "final/Normalized Score": stats["norm_score"],
         "final/Duration": stats["duration"],
+        "final/Token Efficiency": stats["token_efficiency"],
+        "final/Doom Loop Count": stats["doom_loop_count"],
     }
     wandb_run.log(
         {"episode/rollout": wandb.Table(dataframe=df), **wandb_stats},
