@@ -434,7 +434,15 @@ def _maybe_load_agent_module():
                 f"{agent_dirname}.{agent_filename}", agent_file
             )
             module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
+            sys.modules[f"{agent_dirname}.{agent_filename}"] = module
+            try:
+                spec.loader.exec_module(module)
+            except ValueError as e:
+                # If the agent is already registered, that's fine.
+                if "already registered" in str(e):
+                    print(f"Agent from {agent_file} was already registered, skipping.")
+                else:
+                    raise
 
 
 def parse_args():
