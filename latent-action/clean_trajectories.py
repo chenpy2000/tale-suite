@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# Filter trajectories by min length, min reward, max repetition rate.
+# Filter collected trajectories before VQ-VAE training.
+# Drops episodes that are too short, too low-reward, or too repetitive (same action over and over).
 
 import argparse
 import json
@@ -8,6 +9,7 @@ from pathlib import Path
 
 
 def main():
+    """Walk data/trajectories, keep episodes that pass min-length, min-reward, max-repetition-rate. Write to trajectories_cleaned."""
     p = argparse.ArgumentParser()
     p.add_argument("--input-dir", type=Path, default=None)
     p.add_argument("--output-dir", type=Path, default=None)
@@ -41,6 +43,7 @@ def main():
         actions = [str(s.get("action", "")) for s in steps]
         if not actions:
             continue
+        # Repetition rate = max count of any single action / total actions
         rep = max(actions.count(a) for a in set(actions)) / len(actions)
         if rep > args.max_repetition_rate:
             continue

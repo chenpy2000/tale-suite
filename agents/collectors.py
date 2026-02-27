@@ -1,4 +1,6 @@
-# Diverse + NoisyWalkthrough trajectory collectors for VQ-VAE data.
+# Trajectory collectors for VQ-VAE training.
+# DiverseCollector: explores without walkthroughs by cycling through strategies (goal-directed, exploration, etc.).
+# NoisyWalkthroughCollector: follows game walkthroughs when available, injects random deviations for diversity.
 
 import argparse
 import json
@@ -14,6 +16,7 @@ from tales.token import get_token_counter
 
 
 def _j(v):
+    """JSON-serialize infos (handles nested dicts, sets, etc.)."""
     if isinstance(v, (str, int, float, bool)) or v is None:
         return v
     if isinstance(v, dict):
@@ -26,6 +29,7 @@ def _j(v):
 
 
 def _save(path, uid, episodes, env_name, ep_idx, traj):
+    """Write episodes + in-progress trajectory to disk for collect_data.py to pick up."""
     d = os.path.dirname(path)
     if d:
         os.makedirs(d, exist_ok=True)
@@ -36,6 +40,9 @@ def _save(path, uid, episodes, env_name, ep_idx, traj):
 
 
 class DiverseCollector(tales.Agent):
+    """Cycles through strategies (goal, explore, object, nav, random) every few steps.
+    No walkthrough needed—works on any game. Keeps episodes that are long enough,
+    have decent reward, and aren't too repetitive."""
     def __init__(self, **kwargs):
         self.seed = kwargs.get("seed", 20241001)
         self.rng = random.Random(self.seed)
@@ -68,6 +75,7 @@ class DiverseCollector(tales.Agent):
         self.env_name = env_name
 
     def _cands(self, obs, info):
+        """Build candidate actions: use admissible_commands if provided, else heuristics from obs."""
         adm = info.get("admissible_commands") if isinstance(info, dict) else None
         if adm:
             return [str(a) for a in adm]
@@ -83,6 +91,7 @@ class DiverseCollector(tales.Agent):
         return a
 
     def _pick(self, acts):
+        """Pick action by current strategy. Switch strategy every few steps. Avoid repeating same action 3x."""
         self.steps += 1
         if self.steps >= self.switch:
             self.cur = self.rng.choice(self.strats)
@@ -122,6 +131,7 @@ class DiverseCollector(tales.Agent):
             total_r = sum(s["reward"] for s in self.traj)
             acts = [s["action"] for s in self.traj]
             rep = max(acts.count(x) for x in set(acts)) / len(acts) if acts else 0
+            # Keep episode only if long enough, rewarding enough, and not too repetitive
             if n >= self.min_ep and total_r >= self.min_r and rep <= self.max_rep:
                 self.episodes.append({"env_name": self.env_name, "episode_idx": self.ep_idx, "num_steps": n, "trajectory": self.traj})
                 if self.autosave:
@@ -136,6 +146,9 @@ class DiverseCollector(tales.Agent):
 
 
 class NoisyWalkthroughCollector(tales.Agent):
+    """Follows extra.walkthrough when the game provides it. With probability noise_rate,
+    takes a random admissible action instead; after a deviation, keeps random for 3 steps
+    before returning to the walkthrough. Produces near-optimal but varied trajectories."""
     def __init__(self, **kwargs):
         self.seed = kwargs.get("seed", 20241001)
         self.rng = random.Random(self.seed)
@@ -170,6 +183,7 @@ class NoisyWalkthroughCollector(tales.Agent):
         self.dev_steps = 0
 
     def _choose(self, infos):
+        """Follow walkthrough step-by-step, or inject random action when noise triggers."""
         adm = infos.get("admissible_commands") if isinstance(infos, dict) else []
         if not adm:
             adm = ["look", "inventory", "wait"]

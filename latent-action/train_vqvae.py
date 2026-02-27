@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Train VQ-VAE on (obs, action) windows from trajectories_cleaned.
+# Sliding windows over episodes; reconstruct next action; codebook reset for dead codes.
 
 import argparse
 import json
@@ -13,6 +15,7 @@ from vqvae import VQVAE
 
 
 class TrajectoryWindowDataset(Dataset):
+    """Sliding windows of (obs, action) from episode_*.json. Can pad short episodes, optionally augment by dropping a random step."""
     def __init__(self, root_dir, window_size=5, pad_short=True, min_non_pad=3, augment=False, aug_p=0.3):
         self.root = Path(root_dir)
         self.w = window_size
@@ -59,6 +62,7 @@ class TrajectoryWindowDataset(Dataset):
 
 
 class BalancedTrajectoryDataset(Dataset):
+    """Sliding windows, only from episodes >= window_size. Skips windows with too many pads."""
     def __init__(self, root_dir, window_size=10, min_non_pad=7):
         self.root = Path(root_dir)
         self.w = window_size
@@ -91,6 +95,7 @@ def collate(batch):
 
 
 class CodebookReset:
+    """Every freq steps, reset dead/rare codes by copying from active codes + small noise."""
     def __init__(self, model, thresh=10, freq=500):
         self.model, self.thresh, self.freq = model, thresh, freq
         self.usage, self.steps = defaultdict(int), 0
@@ -119,6 +124,7 @@ class CodebookReset:
 
 
 def main():
+    """Load trajectories, train VQ-VAE, save checkpoint with action_vocab and args."""
     p = argparse.ArgumentParser()
     p.add_argument("--trajectories-dir", default=None)
     p.add_argument("--window-size", type=int, default=5, choices=[5, 10, 15])
@@ -158,6 +164,7 @@ def main():
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     ckpt_path = ckpt_dir / Path(args.checkpoint_path).name
     resetter = CodebookReset(model, 10, 500)
+    # Ramp commitment beta from 0.25 to 2.0 over first 10 epochs
     sched = (lambda e: 0.25 + 1.75 * min(1, e / 10)) if args.commitment_schedule else None
 
     for epoch in range(1, args.epochs + 1):

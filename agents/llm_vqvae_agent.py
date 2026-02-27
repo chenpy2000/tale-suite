@@ -1,4 +1,5 @@
-# LLM + VQ-VAE agent. LLM reasons, VQ-VAE scores admissible actions.
+# LLM + VQ-VAE agent. LLM suggests an action; VQ-VAE scores each admissible action from (obs, action) history.
+# Picks highest VQ-VAE score, boosted if it matches the LLM. Needs admissible_commands from the game.
 
 import argparse
 import random
@@ -27,6 +28,7 @@ SYSTEM_PROMPT = (
 
 class LLMVQVAEAgent(tales.Agent):
     def __init__(self, api_key, api_url, model, vqvae_checkpoint, window_size=None, llm_weight=0.3, seed=20241001, **kwargs):
+        """Load VQ-VAE from checkpoint (with key remap for older checkpoints)."""
         if not api_key:
             raise ValueError("--api-key is required for llm-vqvae agent")
         self.api_key = api_key
@@ -57,6 +59,7 @@ class LLMVQVAEAgent(tales.Agent):
             commitment_beta=args.get("commitment_beta", 0.25),
         )
         sd = ckpt["model_state_dict"]
+        # Older checkpoints used different layer names
         remap = {
             "encoder.input_proj": "encoder.proj",
             "encoder.positional_encoding.pe": "encoder.pe",
@@ -103,6 +106,7 @@ class LLMVQVAEAgent(tales.Agent):
         return data["choices"][0]["message"]["content"].strip()
 
     def act(self, obs, reward, done, info):
+        """Build (obs, action) window, get LLM suggestion, run VQ-VAE for logits. Score admissible actions; pick best, boost LLM match."""
         if done:
             self.reset(obs, info, None)
         adm = info.get("admissible_commands") if isinstance(info, dict) else None
@@ -143,6 +147,7 @@ class LLMVQVAEAgent(tales.Agent):
             logits = self.vqvae.decoder(q, obs_emb)[0, -1, :]
 
         if adm:
+            # VQ-VAE logit per admissible action; try lowercase if action not in vocab
             scores = {}
             stoi, unk = self.vqvae.action_vocab.stoi, self.vqvae.action_vocab.stoi[ActionVocab.UNK_TOKEN]
             for a in adm:
@@ -152,7 +157,7 @@ class LLMVQVAEAgent(tales.Agent):
                     idx = stoi.get(s.lower(), unk)
                 scores[a] = float(logits[idx])
             if llm_action and llm_action in scores:
-                scores[llm_action] += self.llm_weight * 10
+                scores[llm_action] += self.llm_weight * 10  # boost LLM's pick
             a = max(scores, key=scores.get)
         else:
             pred_id = logits.argmax().item()

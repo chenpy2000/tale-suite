@@ -1,4 +1,6 @@
-# VQ-VAE for option learning from (obs, action) sequences.
+# VQ-VAE for (obs, action) sequences. Encodes windows into discrete codes, decodes to predict next action.
+# TextEncoder: SentenceTransformer embeds obs/action text. Encoder: transformer over [obs_emb, action_emb].
+# VectorQuantizer: maps continuous latent to nearest codebook entry. Decoder: LSTM predicts action logits.
 # Requires: torch, sentence-transformers
 
 import json
@@ -21,6 +23,7 @@ UNK = "<UNK>"
 
 
 class ActionVocab:
+    """Maps action strings to ids. Built from trajectories (action counts) or loaded from checkpoint."""
     PAD_TOKEN = PAD
     UNK_TOKEN = UNK
 
@@ -31,6 +34,7 @@ class ActionVocab:
 
     @classmethod
     def from_trajectories(cls, root_dir, min_freq=1):
+        """Build vocab from episode_*.json: count actions, keep those with freq >= min_freq."""
         root = Path(root_dir) if root_dir else Path(__file__).resolve().parent / "data" / "trajectories"
         cnt = Counter()
         for p in root.rglob("episode_*.json"):
@@ -60,6 +64,7 @@ class ActionVocab:
 
 
 class TextEncoder:
+    """SentenceTransformer for obs and action text. Outputs fixed-dim vectors."""
     def __init__(self, model_name="all-MiniLM-L6-v2", device=None):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model = SentenceTransformer(model_name, device=self.device)
@@ -78,6 +83,7 @@ class TextEncoder:
 
 
 class VectorQuantizer(nn.Module):
+    """Maps continuous z to nearest codebook vector. VQ loss + commitment loss (beta * ||z - q||^2)."""
     def __init__(self, num_codes=128, embedding_dim=256, beta=0.25):
         super().__init__()
         self.num_codes = num_codes
@@ -120,6 +126,7 @@ class VectorQuantizer(nn.Module):
 
 
 class Encoder(nn.Module):
+    """Transformer over concatenated [obs_emb, action_emb]. Returns last-timestep latent z."""
     def __init__(self, obs_dim, action_dim, model_dim=256, output_dim=256, num_layers=4, num_heads=8, ff_dim=512, dropout=0.1):
         super().__init__()
         self.proj = nn.Linear(obs_dim + action_dim, model_dim)
@@ -142,6 +149,7 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
+    """LSTM over [obs_proj(obs), quant_proj(quantized)]. Predicts action logits per timestep."""
     def __init__(self, obs_dim, quant_dim, vocab_size, hidden=256, layers=2, dropout=0.1, pad_id=0):
         super().__init__()
         self.pad_id = pad_id
@@ -162,6 +170,7 @@ class Decoder(nn.Module):
 
 
 class VQVAE(nn.Module):
+    """Full model: text_encoder -> encoder -> quantizer -> decoder. Trained to reconstruct actions from (obs, action) windows."""
     def __init__(self, text_model_name="all-MiniLM-L6-v2", action_vocab=None, trajectories_root="data/trajectories",
                  latent_dim=256, num_codes=128, commitment_beta=1.0, device=None):
         super().__init__()
