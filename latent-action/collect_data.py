@@ -59,7 +59,7 @@ def main():
 
         cmd = [sys.executable, "benchmark.py", "--agent", args.agent, args.agent_name,
                "--envs", env, "--nb-steps", str(args.nb_steps), "--seed", str(args.seed),
-               "--trajectory-path", str(traj_path), "--autosave", "--save-every", "10", "-ff"]
+               "--trajectory-path", str(traj_path), "--autosave", "-ff"]
         if args.agent_name == "trajectory-collector":
             cmd += ["--alpha", "0.2", "--gamma", "0.95", "--epsilon", "0.3", "--epsilon-min", "0.05",
                     "--epsilon-decay", "0.999", "--qtable-path", str(qtable_path)]

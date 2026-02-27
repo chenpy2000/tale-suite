@@ -506,6 +506,10 @@ def main():
     agent = Agent(**vars(args))
     agent.new = partial(Agent, **vars(args))
 
+    if args.subcommand == "llm-vqvae" and not args.admissible_commands:
+        log.warning("llm-vqvae needs admissible commands; enabling --admissible-commands")
+        args.admissible_commands = True
+
     # Create logging directory.
     args.log_dir = pjoin(args.log_dir, f"tales_{agent.uid.replace('/', '-')}")
     os.makedirs(args.log_dir, exist_ok=True)
