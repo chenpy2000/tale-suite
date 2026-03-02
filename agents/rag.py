@@ -20,22 +20,16 @@ class RAGAgent(LLMAgent):
                 "WEAVIATE_URL and WEAVIATE_API_KEY must be set in the environment."
             )
 
-        # Use the OpenAI API Key from the LLM model configuration
-        openai_key = (
-            self.model.key if self.model.key else os.environ.get("OPENAI_API_KEY", "")
-        )
-
         self.client = weaviate.connect_to_weaviate_cloud(
             cluster_url=weaviate_url,
             auth_credentials=Auth.api_key(weaviate_api_key),
-            headers={"X-OpenAI-Api-Key": openai_key},
         )
 
         self.rag_top_k = kwargs.get("rag_top_k", 3)
 
         # Weaviate collection names must start with a capital letter and contain only alphanumeric chars and underscores.
         safe_uid = "".join(c if c.isalnum() else "_" for c in self.uid)
-        self.collection_name = "TalesMemoryV2_" + safe_uid
+        self.collection_name = "TalesMemoryV4_" + safe_uid
 
         if not self.client.collections.exists(self.collection_name):
             self.client.collections.create(
