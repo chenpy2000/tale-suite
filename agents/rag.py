@@ -11,6 +11,8 @@ from tales.agent import register
 
 class RAGAgent(LLMAgent):
     def __init__(self, *args, **kwargs):
+        # Backup the OpenAI API Key from the environment before LLMAgent modifies it
+        openai_key = os.environ.get("OPENAI_API_KEY", "")
         super().__init__(*args, **kwargs)
         weaviate_url = os.environ.get("WEAVIATE_URL")
         weaviate_api_key = os.environ.get("WEAVIATE_API_KEY")
@@ -23,6 +25,7 @@ class RAGAgent(LLMAgent):
         self.client = weaviate.connect_to_weaviate_cloud(
             cluster_url=weaviate_url,
             auth_credentials=Auth.api_key(weaviate_api_key),
+            headers={"X-OpenAI-Api-Key": openai_key},
         )
 
         self.rag_top_k = kwargs.get("rag_top_k", 3)
