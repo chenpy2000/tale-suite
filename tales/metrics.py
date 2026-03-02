@@ -30,11 +30,13 @@ def compute_doom_loop_count(rollouts_df: pd.DataFrame, threshold: int = 3) -> in
         # Consider a failed command if it produces no effect or is explicitly rejected.
         # This logic can be refined based on the environments. In AlfWorld, failure is "Nothing happens."
         # In ScienceWorld/TextWorld it can be things like "You can't do that" or "I don't understand".
+        ## Same Action and Feedback will be a flag!!!
         is_failure = (
             "Nothing happens" in feedback
             or "You can't" in feedback
             or "I don't understand" in feedback
             or "recognize" in feedback
+            or "pardon" in feedback
         )
 
         if is_failure:
