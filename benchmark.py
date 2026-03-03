@@ -536,9 +536,9 @@ def main():
     agent = Agent(**vars(args))
     agent.new = partial(Agent, **vars(args))
 
-    # After agents are initialized (which buffers the keys they need),
-    # remove OPENAI_API_KEY to prevent liteLLM from overriding TRITON_API_KEY globally.
-    os.environ.pop("OPENAI_API_KEY", None)
+    if args.subcommand == "llm-vqvae" and not args.admissible_commands:
+        log.warning("llm-vqvae needs admissible commands; enabling --admissible-commands")
+        args.admissible_commands = True
 
     # Create logging directory.
     args.log_dir = pjoin(args.log_dir, f"tales_{agent.uid.replace('/', '-')}")
