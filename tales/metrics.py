@@ -20,36 +20,21 @@ def compute_doom_loop_count(rollouts_df: pd.DataFrame, threshold: int = 3) -> in
         return 0
 
     doom_loop_count = 0
-    current_action = None
+    current_action_feedback = None
     current_streak = 0
 
     for _, row in rollouts_df.iterrows():
         action = row.get("Action", "")
         feedback = row.get("Feedback", "")
+        action_feedback_pair = (action, feedback)
 
-        # Consider a failed command if it produces no effect or is explicitly rejected.
-        # This logic can be refined based on the environments. In AlfWorld, failure is "Nothing happens."
-        # In ScienceWorld/TextWorld it can be things like "You can't do that" or "I don't understand".
-        is_failure = (
-            "Nothing happens" in feedback
-            or "You can't" in feedback
-            or "I don't understand" in feedback
-            or "recognize" in feedback
-        )
-
-        if is_failure:
-            if action == current_action:
-                current_streak += 1
-            else:
-                if current_streak > threshold:
-                    doom_loop_count += 1
-                current_action = action
-                current_streak = 1
+        if action_feedback_pair == current_action_feedback:
+            current_streak += 1
         else:
             if current_streak > threshold:
                 doom_loop_count += 1
-            current_action = None
-            current_streak = 0
+            current_action_feedback = action_feedback_pair
+            current_streak = 1
 
     # Check if the episode ended on a doom loop
     if current_streak > threshold:
