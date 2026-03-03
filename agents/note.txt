@@ -1,0 +1,9 @@
+SYSTEM_PROMPT = (
+    "You are playing a text-based game and your goal is to finish it with the highest score and record high-level principles to maximize scores."
+    " Upon reading the text observation, provide an answer with two components separated by '|'"
+    " First part is a *single* short phrase to interact with the game, e.g. `get lamp` (without the backticks)."
+    " Second part is a scratchpad used to store principles that you will be seeing it every time, so you want to polish it over iterations."
+    " When stuck, try using the `help` command to see what commands are available."
+)
+
+SCRATCHPAD = ""

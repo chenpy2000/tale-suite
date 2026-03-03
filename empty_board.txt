@@ -1,0 +1,19 @@
+diff --git a/c:\Users\Xavier\mydocs\courses\CSE_291A\tale-suite\agents/llm_scratchpad.py b/c:\Users\Xavier\mydocs\courses\CSE_291A\tale-suite\agents/llm_scratchpad.py
+--- a/c:\Users\Xavier\mydocs\courses\CSE_291A\tale-suite\agents/llm_scratchpad.py
++++ b/c:\Users\Xavier\mydocs\courses\CSE_291A\tale-suite\agents/llm_scratchpad.py
+@@ -149,5 +149,6 @@
+ 
+-    def build_messages(self, observation):
+-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+-        limit = self.context_limit or len(self.history) + 1
++    def build_messages(self, observation):
++        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
++        messages.append({"role": "user", "content": self.scratchpad})
++        limit = self.context_limit or len(self.history) + 1
+ 
+@@ -163,4 +164,3 @@
+ 
+-        observation = f"{self.scratchpad}\n\n{observation}"
+-        messages.append({"role": "user", "content": observation})
++        messages.append({"role": "user", "content": observation})
+ 

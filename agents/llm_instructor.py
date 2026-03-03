@@ -174,7 +174,7 @@ class LLMAgent(tales.Agent):
     def build_messages(self, observation):
         system_content = SYSTEM_PROMPT
         if self.current_guidance.strip():
-            system_content = f"{SYSTEM_PROMPT}\n\n{self.current_guidance.strip()}"
+            system_content = f"{SYSTEM_PROMPT}\n\n[Current Guidance:{self.current_guidance.strip()}]"
 
         messages = [{"role": "system", "content": system_content}]
         limit = self.context_limit or len(self.history) + 1
