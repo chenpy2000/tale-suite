@@ -18,6 +18,7 @@ from tqdm import tqdm
 
 import tales
 from tales.logger import log, setup_logging
+from tales.metrics import compute_doom_loop_count, compute_token_efficiency
 from tales.utils import NumpyEncoder
 
 os.environ["WANDB_MODE"] = "disabled"
@@ -161,6 +162,7 @@ def evaluate(agent, env_name, args):
                 breakpoint()
 
             prev_obs = obs
+            admissible_before_action = list(info.get("admissible_commands") or [])
 
             # Force one action per step.
             if "\n" in action.strip():
@@ -177,8 +179,8 @@ def evaluate(agent, env_name, args):
 
             if (
                 args.admissible_commands
-                and info["admissible_commands"]
-                and action not in info["admissible_commands"]
+                and admissible_before_action
+                and action not in admissible_before_action
             ):
                 nb_invalid_actions += 1
 
@@ -273,6 +275,15 @@ def evaluate(agent, env_name, args):
     ]
     # fmt: on
     df = pd.DataFrame(results, columns=columns)
+
+    # Compute operational efficiency and doom loop metrics
+    total_tokens = df["Token Usage"].sum()
+    token_efficiency = compute_token_efficiency(total_tokens, highscore)
+    doom_loop_count = compute_doom_loop_count(df)
+
+    stats["token_efficiency"] = token_efficiency
+    stats["doom_loop_count"] = doom_loop_count
+
     df.to_json(rollouts_file, orient="records", lines=True)
 
     wandb_stats = {
@@ -290,6 +301,8 @@ def evaluate(agent, env_name, args):
         "final/Game Max Score": stats["max_score"],
         "final/Normalized Score": stats["norm_score"],
         "final/Duration": stats["duration"],
+        "final/Token Efficiency": stats["token_efficiency"],
+        "final/Doom Loop Count": stats["doom_loop_count"],
     }
     wandb_run.log(
         {"episode/rollout": wandb.Table(dataframe=df), **wandb_stats},
@@ -340,12 +353,21 @@ def benchmark(agent, args):
         total_steps += summary["nb_steps"]
         total_invalid += summary["nb_invalid_actions"]
 
+        token_eff = summary.get(
+            "token_efficiency", summary.get("final/Token Efficiency")
+        )
+        doom_loop = summary.get("doom_loop_count", summary.get("final/Doom Loop Count"))
+        token_eff_str = f"{float(token_eff):8.2f}" if token_eff is not None else "   n/a  "
+        doom_loop_str = f"{int(doom_loop):4d}" if doom_loop is not None else " n/a"
+
         msg = (
             f"{env.ljust(max_env_name)}"
             f"  Steps: {summary['nb_steps']:4d}/{args.nb_steps:4d}"
             f"  Time: {datetime.timedelta(seconds=int(summary['duration']))}"
             f"{summary['nb_resets']:4d} resets"
             f"  Score: {summary['highscore']:3d}/{summary['max_score']:3d} ({summary['norm_score']:6.2%})"
+            f"  TokenEff: {token_eff_str}"
+            f"  DoomLoop: {doom_loop_str}"
         )
 
         log.critical(msg)
@@ -422,7 +444,15 @@ def _maybe_load_agent_module():
                 f"{agent_dirname}.{agent_filename}", agent_file
             )
             module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
+            sys.modules[f"{agent_dirname}.{agent_filename}"] = module
+            try:
+                spec.loader.exec_module(module)
+            except ValueError as e:
+                # If the agent is already registered, that's fine.
+                if "already registered" in str(e):
+                    print(f"Agent from {agent_file} was already registered, skipping.")
+                else:
+                    raise
 
 
 def parse_args():
