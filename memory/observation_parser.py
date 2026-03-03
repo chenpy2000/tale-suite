@@ -147,38 +147,90 @@ class ObservationParser:
             rules.append("locked_door_requires_unlock")
         if "can't go that way" in lowered or "cannot go" in lowered:
             rules.append("movement_blocked_invalid_direction")
-        if "need" in lowered and "to" in lowered:
+        if re.search(r"\byou need\b.{0,80}\bto\b", lowered):
             rules.append("precondition_hint_present")
         return rules
 
-    def _extract_failures(self, _text: str, lowered: str) -> List[str]:
-        patterns = [
-            "you can't",
-            "cannot",
-            "nothing happens",
-            "not possible",
-            "doesn't work",
-            "invalid",
-            "failed",
-            "no effect",
+    def _extract_failures(self, text: str, _lowered: str) -> List[str]:
+        failures: List[str] = []
+        failure_patterns = [
+            ("action_rejected", r"^(you can't|you cannot)\b"),
+            ("nothing_happened", r"^nothing happens\b"),
+            ("not_possible", r"^(that's|this is) not possible\b"),
+            ("doesnt_work", r"^that doesn't work\b"),
+            ("invalid_command", r"^(invalid|i don't understand|unknown command)\b"),
+            ("missing_required_item", r"^you (don't|do not) (have|carry)\b"),
+            ("no_effect", r"^no effect\b"),
+            ("action_failed", r"^failed\b"),
+            ("burned_item", r"^you burned\b"),
+            ("terminal_loss", r"^\*+\s*you lost!?"),
+            ("terminal_loss", r"^would you like to quit\??\b"),
+            ("terminal_loss", r"^game over\b"),
+            ("terminal_loss", r"^you (died|are dead)\b"),
         ]
-        return [p for p in patterns if p in lowered]
+
+        for raw_line in text.splitlines():
+            line = " ".join(raw_line.strip().lower().split())
+            if not line:
+                continue
+            for label, pattern in failure_patterns:
+                if re.search(pattern, line):
+                    failures.append(label)
+                    break
+
+        return self._dedupe(failures)
 
     def _extract_successes(self, _text: str, lowered: str) -> List[str]:
-        patterns = [
-            "you open",
-            "you unlock",
-            "you take",
-            "you pick up",
-            "you win",
-            "completed",
-            "score",
+        successes: List[str] = []
+        success_patterns = [
+            ("you open", r"^you open\b"),
+            ("you unlock", r"^you unlock\b"),
+            ("you take", r"^you (take|pick up)\b"),
+            ("you win", r"^\*+\s*you won!?"),
+            ("score_increased", r"^your score has just gone up\b"),
+            ("completed", r"\b(completed|objective complete)\b"),
         ]
-        return [p for p in patterns if p in lowered]
+
+        for raw_line in lowered.splitlines():
+            line = " ".join(raw_line.strip().split())
+            if not line:
+                continue
+            for label, pattern in success_patterns:
+                if re.search(pattern, line):
+                    successes.append(label)
+                    break
+
+        return self._dedupe(successes)
 
     def _extract_preconditions(self, _text: str, lowered: str) -> List[str]:
         preconditions: List[str] = []
-        match = re.search(r"you need (?:a|an|the)?\s*([^\n\.;]+)", lowered)
-        if match:
-            preconditions.append(match.group(1).strip())
-        return preconditions
+
+        # Capture explicit "need X to do Y" constraints.
+        for need, goal in re.findall(
+            r"you need\s+([a-z0-9\- ']{1,50}?)\s+to\s+([a-z0-9\- ']{1,60})",
+            lowered,
+        ):
+            need_clean = " ".join(need.split())
+            goal_clean = " ".join(goal.split())
+            if need_clean and goal_clean:
+                preconditions.append(f"{need_clean} -> {goal_clean}")
+
+        # Capture "you need to VERB ..." while filtering navigational flavor text.
+        for goal in re.findall(r"you need to\s+([a-z0-9\- ']{1,60})", lowered):
+            goal_clean = " ".join(goal.split())
+            if goal_clean and "exit without a door" not in goal_clean:
+                preconditions.append(f"to {goal_clean}")
+
+        return self._dedupe(preconditions)
+
+    @staticmethod
+    def _dedupe(items: List[str]) -> List[str]:
+        out: List[str] = []
+        seen = set()
+        for item in items:
+            key = item.strip().lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            out.append(item.strip())
+        return out
