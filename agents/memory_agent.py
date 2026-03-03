@@ -37,13 +37,19 @@ class MemoryAgent(tales.Agent):
         self.use_llm_compressor = bool(kwargs.get("use_llm_compressor", False))
         self.parser_model = kwargs.get("parser_model") or self.llm_model
         self.compressor_model = kwargs.get("compressor_model") or self.llm_model
+        self.prompt_variant = kwargs.get("prompt_variant", "default")
 
+        # Variant "history" or "naive": compress raw history without scratchpad
+        # Variant "compressed": use scratchpad + compress
+        # Variant "structured": use scratchpad, structured compression
         self.use_scratchpad = self.variant in {
+            "compressed",
             "structured",
             "rag",
             "option",
         }
         self.use_compression = self.variant in {
+            "history",      # NEW: naive variant - compress raw history without scratchpad
             "compressed",
             "structured",
             "rag",
@@ -79,6 +85,7 @@ class MemoryAgent(tales.Agent):
                 llm_api_key=self.llm_api_key,
                 llm_api_key_env=self.llm_api_key_env,
                 llm_timeout=self.llm_timeout,
+                prompt_variant=self.prompt_variant,
             )
             if self.use_compression
             else None
@@ -90,6 +97,10 @@ class MemoryAgent(tales.Agent):
         self.raw_memory: List[str] = []
         self.compressed_history: List[Dict[str, Any]] = []
         self.step_count = 0
+        self.task_related_actions: List[str] = []  # Dynamic task-specific actions
+        self.task_entities: List[str] = []  # Key entities from recipe/goal
+        self.last_compression_info: Dict[str, Any] = {}  # Store last compression LLM call
+        self.task_recipe: str = ""  # Store extracted recipe/task
 
         # fmt:off
         self.default_actions = [
@@ -132,10 +143,38 @@ class MemoryAgent(tales.Agent):
         self.history = []
         self.raw_memory = []
         self.compressed_history = []
+        self.task_related_actions = []
+        self.task_entities = []
+        self.last_compression_info = {}
+        self.task_recipe = ""  # Reset cached recipe
         if self.scratchpad is not None:
             self.scratchpad.reset()
             self.scratchpad.update(obs)
         self.raw_memory.append(obs)
+
+    def _extract_task_info(self) -> str:
+        """Extract task/recipe information from scratchpad facts."""
+        if self.task_recipe:
+            return self.task_recipe
+        
+        if self.scratchpad is None:
+            return ""
+        
+        exported = self.scratchpad.export()
+        facts = exported.get("facts", [])
+        
+        # Look for recipe-related facts
+        recipe_facts = []
+        for fact in facts:
+            fact_lower = fact.lower()
+            if any(keyword in fact_lower for keyword in ["recipe", "ingredient", "directions", "dice", "chop", "roast", "prepare meal", "cook"]):
+                recipe_facts.append(fact)
+        
+        if recipe_facts:
+            self.task_recipe = "\\n".join(recipe_facts[:10])  # Cache it
+            return self.task_recipe
+        
+        return ""
 
     def act(self, obs, reward, done, info):
         self.step_count += 1
@@ -145,16 +184,27 @@ class MemoryAgent(tales.Agent):
         if self.scratchpad is not None:
             updates = self.scratchpad.update(obs)
 
+        compression_info = {}
         if self._should_compress():
             compressed = self._compress_now()
             if compressed is not None:
                 self.compressed_history.append(compressed)
+                # Store compression info if it has LLM call details
+                if "_llm_prompt" in compressed:
+                    compression_info = {
+                        "compression_prompt": compressed.get("_llm_prompt", ""),
+                        "compression_response": compressed.get("_llm_response", ""),
+                        "compression_usage": compressed.get("_llm_usage", {}),
+                    }
+                    self.last_compression_info = compression_info
 
         retrieved = []
         if self.retriever is not None:
             retrieved = self.retriever.query(obs, self.compressed_history)
 
-        action = self._generate_action(obs, info, updates, retrieved)
+        # Call _generate_action_with_stats to get both action and LLM stats
+        action, llm_stats = self._generate_action_with_stats(obs, info, updates, retrieved)
+        
         self.history.append(
             {
                 "step": self.step_count,
@@ -168,8 +218,19 @@ class MemoryAgent(tales.Agent):
         stats = {
             "prompt": self._build_prompt_debug(obs, updates, retrieved),
             "response": action,
-            "nb_tokens": self.token_counter(text=obs),
+            "nb_tokens": llm_stats.get("nb_tokens_prompt", 0) + llm_stats.get("nb_tokens_response", 0),
+            "nb_tokens_prompt": llm_stats.get("nb_tokens_prompt", 0),
+            "nb_tokens_response": llm_stats.get("nb_tokens_response", 0),
+            "nb_tokens_thinking": llm_stats.get("nb_tokens_thinking", 0),
+            "thinking": llm_stats.get("thinking", None),
         }
+        
+        # Add compression info if it happened this step
+        if compression_info:
+            stats["compression_prompt"] = compression_info.get("compression_prompt", "")
+            stats["compression_response"] = compression_info.get("compression_response", "")
+            stats["compression_usage"] = compression_info.get("compression_usage", {})
+        
         return action, stats
 
     def _should_compress(self) -> bool:
@@ -185,6 +246,14 @@ class MemoryAgent(tales.Agent):
         return self._compress_raw_history()
 
     def _compress_raw_history(self) -> Dict[str, Any]:
+        """
+        Compress raw history without using scratchpad.
+        This is the most naive variant - directly give history to LLM compressor.
+        """
+        if self.compressor is not None:
+            return self.compressor.compress_raw_history(self.history)
+        
+        # Fallback if no compressor
         recent = self.raw_memory[-self.max_context_items :]
         summary = " | ".join(line[:120].replace("\n", " ") for line in recent)
         return {
@@ -194,14 +263,21 @@ class MemoryAgent(tales.Agent):
             "top_rules": [],
         }
 
-    def _generate_action(
+    def _generate_action_with_stats(
         self,
         obs: str,
         info: Dict[str, Any],
         updates: Dict[str, Any],
         retrieved: List[Dict[str, Any]],
-    ) -> str:
+    ) -> tuple:
+        """Generate action and return (action, stats_dict) with token usage info."""
         admissible = list(info.get("admissible_commands") or [])
+        llm_stats = {
+            "nb_tokens_prompt": 0,
+            "nb_tokens_response": 0,
+            "nb_tokens_thinking": 0,
+            "thinking": None,
+        }
 
         option = self.option_module.choose_option(obs)
         option_candidates = self.option_module.option_actions(option)
@@ -210,28 +286,45 @@ class MemoryAgent(tales.Agent):
         candidates = option_candidates + heuristics
 
         if self.use_llm_policy:
-            llm_action = self._llm_action(obs, updates, retrieved, admissible, candidates)
+            llm_action, llm_response_stats = self._llm_action_with_stats(
+                obs, updates, retrieved, admissible, candidates
+            )
             if llm_action:
-                return llm_action
+                return llm_action, llm_response_stats
+            llm_stats = llm_response_stats  # Keep stats even if action was None
 
+        # Fallback to heuristics
         if admissible:
             admissible_set = set(admissible)
             for candidate in candidates:
                 if candidate in admissible_set:
-                    return candidate
-            return str(self.rng.choice(admissible))
+                    return candidate, llm_stats
+            return str(self.rng.choice(admissible)), llm_stats
 
         for candidate in candidates:
             if candidate:
-                return candidate
+                return candidate, llm_stats
 
-        return str(self.rng.choice(self.default_actions))
+        final_action = str(self.rng.choice(self.default_actions))
+        return final_action, llm_stats
 
     def _heuristic_actions(
         self, obs: str, updates: Dict[str, Any], retrieved: List[Dict[str, Any]]
     ) -> List[str]:
         lowered = (obs or "").lower()
         actions: List[str] = []
+
+        # Extract LLM-recommended actions from retrieved compressed memory
+        llm_recommended = []
+        llm_avoid = []
+        if retrieved:
+            for mem in retrieved:
+                llm_recommended.extend(mem.get("recommended_actions", []))
+                llm_avoid.extend(mem.get("avoid_actions", []))
+        
+        # Remove duplicates
+        llm_recommended = list(dict.fromkeys(llm_recommended))[:12]
+        llm_avoid = list(dict.fromkeys(llm_avoid))
 
         if any(x in lowered for x in ["what do i do", "stuck", "can't"]):
             actions.append("help")
@@ -242,10 +335,32 @@ class MemoryAgent(tales.Agent):
         if "inventory" not in lowered and self.step_count % 9 == 0:
             actions.append("inventory")
 
-        nouns = re.findall(r"\b[a-z]{4,}\b", lowered)
+        # Extract entities from observations (avoid verbs like "open", "close")
+        # Common verbs to skip
+        skip_words = {
+            "open", "close", "take", "drop", "examine", "look", "read", 
+            "scan", "find", "make", "like", "have", "here", "were", "over", 
+            "that", "this", "your", "there", "something", "nothing"
+        }
+        nouns = [w for w in re.findall(r"\b[a-z]{4,}\b", lowered) if w not in skip_words]
+        
+        # Extract recipe ingredients if present
+        if "ingredients:" in lowered:
+            # Find lines after "ingredients:" and before "directions:"
+            ingredients_section = lowered.split("ingredients:")
+            if len(ingredients_section) > 1:
+                ingredients_text = ingredients_section[1].split("directions:")[0]
+                # Extract ingredient names (simple words)
+                recipe_items = re.findall(r"\b([a-z]{4,})\b", ingredients_text)
+                for item in recipe_items[:3]:  # First 3 ingredients
+                    if item not in skip_words:
+                        actions.extend([f"take {item}", f"examine {item}", f"examine fridge"])
+        
+        # Extract from environment description (fridge, stove, counter, etc.)
         if nouns:
             focus = nouns[0]
-            actions.extend([f"examine {focus}", f"take {focus}"])
+            if focus not in skip_words:
+                actions.extend([f"examine {focus}", f"take {focus}"])
 
         if updates.get("failures"):
             actions.append("look")
@@ -253,34 +368,79 @@ class MemoryAgent(tales.Agent):
         if retrieved:
             actions.append("look")
 
+        # Priority 1: LLM-recommended actions from compressed memory
+        if llm_recommended:
+            actions.extend(llm_recommended)
+        
+        # Priority 2: Task-related actions from static extraction
+        if self.task_related_actions:
+            actions.extend(self.task_related_actions[:8])
+        
+        # Priority 3: Navigation as fallback (lower priority)
         actions.extend(["north", "south", "east", "west"])
+        
+        # Filter out actions that LLM says to avoid
+        if llm_avoid:
+            actions = [a for a in actions if a not in llm_avoid]
+        
         return actions
 
-    def _llm_action(
+    def _llm_action_with_stats(
         self,
         obs: str,
         updates: Dict[str, Any],
         retrieved: List[Dict[str, Any]],
         admissible: List[str],
         candidates: List[str],
-    ) -> Optional[str]:
+    ) -> tuple:
+        """Call LLM and return (action, stats_dict) with token usage."""
+        stats = {
+            "nb_tokens_prompt": 0,
+            "nb_tokens_response": 0,
+            "nb_tokens_thinking": 0,
+            "thinking": None,
+        }
+        
         api_key = self.llm_api_key or os.getenv(self.llm_api_key_env)
         if not api_key:
-            return None
+            return None, stats
 
         try:
             prompt = self._build_llm_prompt(obs, updates, retrieved, admissible, candidates)
             response_json = self._query_llm(prompt, api_key)
+            
+            # Extract action
             raw = self._extract_action_text(response_json)
             action = self._sanitize_action(raw)
+            
+            # Extract stats from API response
+            if response_json and "usage" in response_json:
+                usage = response_json["usage"]
+                stats["nb_tokens_prompt"] = usage.get("prompt_tokens", 0)
+                stats["nb_tokens_response"] = usage.get("completion_tokens", 0)
+                # For reasoning tokens, check if model returns them
+                stats["nb_tokens_thinking"] = usage.get("reasoning_tokens", 0)
+            
+            # Extract reasoning content if available
+            if response_json and "choices" in response_json and response_json["choices"]:
+                message = response_json["choices"][0].get("message", {})
+                reasoning = message.get("reasoning_content", "")
+                if reasoning:
+                    stats["thinking"] = reasoning
+                    # If reasoning_tokens not in usage, estimate from content
+                    if stats["nb_tokens_thinking"] == 0 and reasoning:
+                        stats["nb_tokens_thinking"] = len(reasoning.split())
+            
             if not action:
-                return None
+                return None, stats
 
             if admissible:
-                return self._align_to_admissible(action, admissible)
-            return action
-        except Exception:
-            return None
+                final_action = self._align_to_admissible(action, admissible)
+                return final_action, stats
+            return action, stats
+            
+        except Exception as e:
+            return None, stats
 
     def _build_llm_prompt(
         self,
@@ -290,38 +450,88 @@ class MemoryAgent(tales.Agent):
         admissible: List[str],
         candidates: List[str],
     ) -> str:
-        snapshot = {}
-        if self.scratchpad is not None:
-            exported = self.scratchpad.export()
-            snapshot = {
-                "facts": exported["facts"][-self.max_context_items :],
-                "rules": exported["rules"][-self.max_context_items :],
-                "preconditions": exported["preconditions"][-self.max_context_items :],
-                "failures": exported["failures"][-8:],
-                "successes": exported["successes"][-8:],
-            }
-
-        compressed = self.compressed_history[-3:]
-        admissible_text = ", ".join(admissible[:50]) if admissible else "N/A"
-        candidate_text = ", ".join(candidates[:20]) if candidates else "N/A"
-
-        return (
-            "You are an agent in a text game. Return exactly one short command.\n"
-            "Do not explain. No punctuation unless needed.\n\n"
-            f"Observation:\n{obs}\n\n"
-            f"Scratchpad:\n{json.dumps(snapshot, ensure_ascii=True)}\n\n"
-            f"Compressed history:\n{json.dumps(compressed, ensure_ascii=True)}\n\n"
-            f"Retrieved memory:\n{json.dumps(retrieved[:3], ensure_ascii=True)}\n\n"
-            f"Heuristic candidates:\n{candidate_text}\n\n"
-            f"Admissible commands:\n{admissible_text}\n"
-        )
+        parts = []
+        
+        # Core instruction
+        parts.append("You are playing a text-based cooking game. Your GOAL is to follow the recipe and prepare a meal.")
+        parts.append("\nSTRATEGY:")
+        parts.append("1. If you see a recipe, follow its steps in order (e.g., find ingredients, chop, roast, prepare meal)")
+        parts.append("2. Interact with objects you can see BEFORE exploring (e.g., 'take apple', 'examine fridge')")
+        parts.append("3. If stuck or getting errors, use 'look' or 'inventory' to reorient")
+        parts.append("4. Avoid repeating failed actions\n")
+        
+        # Extract and show task/recipe from scratchpad facts
+        task_info = self._extract_task_info()
+        if task_info:
+            parts.append(f"TASK/RECIPE:\n{task_info}\n")
+        
+        # Show memory guidance from compression (if available)
+        # This is variant-agnostic: compression.py decides what to extract based on prompt_variant
+        if self.compressed_history:
+            last_compression = self.compressed_history[-1]
+            
+            # Show recommended actions if compressed memory provides them
+            if "recommended_actions" in last_compression and last_compression["recommended_actions"]:
+                rec = last_compression["recommended_actions"][:8]
+                parts.append(f"Memory Guidance - Recommended: {', '.join(rec)}")
+            
+            # Show actions to avoid if provided
+            if "avoid_actions" in last_compression and last_compression["avoid_actions"]:
+                avoid = last_compression["avoid_actions"][:5]
+                parts.append(f"Memory Guidance - Avoid: {', '.join(avoid)}")
+            
+            # Show strategy hint if provided
+            if "strategy_hint" in last_compression and last_compression["strategy_hint"]:
+                parts.append(f"Memory Guidance - Strategy: {last_compression['strategy_hint']}")
+            
+            # Show summary if provided (for variants that don't extract actions)
+            if "summary" in last_compression and last_compression["summary"] and not last_compression.get("recommended_actions"):
+                summary = last_compression["summary"]
+                if len(summary) > 200:
+                    summary = summary[:200] + "..."
+                parts.append(f"Memory Summary: {summary}")
+            
+            parts.append("")
+        
+        # Always show recent action history for immediate context
+        if self.history:
+            recent = self.history[-5:]
+            parts.append("Recent actions:")
+            for h in recent:
+                parts.append(f"  Step {h['step']}: {h['action']} → reward={h['reward']:.1f}")
+            parts.append("")
+        
+        # Current observation
+        parts.append(f"Current observation:\n{obs}\n")
+        
+        # Show available actions
+        parts.append("\nOutput exactly ONE action command. Output ONLY the command with no explanation.")
+        
+        # Admissible commands (if provided)
+        if admissible:
+            adm_text = ", ".join(admissible[:15])
+            parts.append(f"\nValid commands: {adm_text}")
+        
+        # Filter and prioritize candidates
+        # Deprioritize pure navigation if there are other options
+        priority_candidates = [c for c in candidates if c not in ['north', 'south', 'east', 'west']]
+        nav_candidates = [c for c in candidates if c in ['north', 'south', 'east', 'west']]
+        
+        if priority_candidates:
+            parts.append(f"Suggested actions (prioritized): {', '.join(priority_candidates[:6])}\n")
+        if nav_candidates and len(priority_candidates) < 3:
+            parts.append(f"Navigation options: {', '.join(nav_candidates)}\n")
+        
+        parts.append("\nYour command:")
+        
+        return "\n".join(parts)
 
     def _query_llm(self, prompt: str, api_key: str) -> Dict[str, Any]:
         payload = {
             "model": self.llm_model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.0,
-            "max_tokens": 32,
+            "max_tokens": 256,  # Increased to allow both reasoning + action content
         }
         req = urllib.request.Request(
             self.llm_api_url,
@@ -377,7 +587,7 @@ class MemoryAgent(tales.Agent):
     def _build_prompt_debug(
         self, obs: str, updates: Dict[str, Any], retrieved: List[Dict[str, Any]]
     ) -> str:
-        parts = [f"obs={obs[:200]}"]
+        parts = [f"obs={obs}"]
         if updates:
             parts.append(f"updates={updates}")
         if self.scratchpad is not None:
@@ -405,7 +615,7 @@ def build_argparser(parser=None):
     )
     group.add_argument(
         "--memory-variant",
-        choices=["baseline", "compressed", "structured", "rag", "option"],
+        choices=["baseline", "history", "compressed", "structured", "rag", "option"],
         default="structured",
         help="Memory variant to run. Default: %(default)s",
     )
@@ -492,6 +702,11 @@ def build_argparser(parser=None):
         "--compressor-model",
         default=None,
         help="Model for compression. Default: use --llm-model",
+    )
+    group.add_argument(
+        "--prompt-variant",
+        default="default",
+        help="Compression prompt variant (default, v1, v2, v3). Default: %(default)s",
     )
 
     return parser

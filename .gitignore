@@ -169,6 +169,7 @@ cython_debug/
 # Logging
 wandb/
 logs/
+compressions/
 
 # Compute
 .amltconfig

@@ -200,12 +200,19 @@ def evaluate(agent, env_name, args):
                 step=step,
             )
 
+            # Convert compression_usage dict to JSON string for wandb compatibility
+            compression_usage = stats.get("compression_usage", {})
+            compression_usage_str = json.dumps(compression_usage) if compression_usage else ""
+            
             # fmt: off
             results.append([
                 step, score, max_score, norm_score, moves,
                 prev_obs, action, feedback,
                 stats.get("prompt"), stats.get("response"), stats.get("thinking"),
                 total_tokens, prompt_tokens, response_tokens, thinking_tokens,
+                stats.get("compression_prompt", ""),
+                stats.get("compression_response", ""),
+                compression_usage_str,
             ])
             # fmt: on
 
@@ -271,6 +278,7 @@ def evaluate(agent, env_name, args):
         "Observation", "Action", "Feedback",
         "Prompt", "Response", "Thinking",
         "Token Usage", "Prompt Tokens", "Response Tokens", "Thinking Tokens",
+        "Compression Prompt", "Compression Response", "Compression Usage",
     ]
     # fmt: on
     df = pd.DataFrame(results, columns=columns)

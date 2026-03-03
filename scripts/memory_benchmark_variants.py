@@ -58,6 +58,9 @@ def build_command(args, variant):
     if args.compressor_model:
         cmd.extend(["--compressor-model", args.compressor_model])
 
+    if args.prompt_variant:
+        cmd.extend(["--prompt-variant", args.prompt_variant])
+
     return cmd
 
 
@@ -94,6 +97,8 @@ def main():
     parser.add_argument("--use-llm-compressor", action="store_true")
     parser.add_argument("--parser-model", default=None)
     parser.add_argument("--compressor-model", default=None)
+    parser.add_argument("--prompt-variant", default=None,
+                        help="Compression prompt variant (default, v1, v2, v3)")
     parser.add_argument(
         "--dry-run",
         action="store_true",
