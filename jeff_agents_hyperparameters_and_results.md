@@ -28,6 +28,7 @@ python benchmark.py graph \
     --conversation \
     --admissible-commands
 ```
+> **Note**: To force a re-run of a benchmark and ignore cached previous results, add the `-ff` (or `--force-all`) flag to this command!
 
 ### Hyperparameters
 - **LLM Endpoint**: `api-gpt-oss-120b` (Triton AI Proxy)
@@ -59,6 +60,7 @@ python benchmark.py rag \
     --conversation \
     --admissible-commands
 ```
+> **Note**: To force a re-run of a benchmark and ignore cached previous results, add the `-ff` (or `--force-all`) flag to this command!
 
 ### Hyperparameters
 - **LLM Endpoint**: `api-gpt-oss-120b` (Triton AI Proxy)
