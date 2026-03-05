@@ -4,7 +4,7 @@ import ast
 import json
 import re
 import requests
-from unittest.mock import patch
+from unittest.mock import patch  # (still unused, safe to delete)
 
 import networkx as nx
 
@@ -13,11 +13,28 @@ from tales.agent import register
 
 
 class GraphAgent(LLMAgent):
+    # --- Relations that should be mutually exclusive per SUBJECT ---
+    # If we add (X, HELD_BY, Player), we should delete prior (X, INSIDE, ...), (X, ON_TOP_OF, ...), etc.
+    EXCLUSIVE_OUTGOING = {
+        "LOCATION": {"INSIDE", "ON_TOP_OF", "HELD_BY", "IN_ROOM"},
+        # You can extend later if you start extracting these:
+        # "DOOR_STATE": {"OPEN", "CLOSED", "LOCKED", "UNLOCKED"},
+        # "CUT_STATE": {"WHOLE", "SLICED", "DICED", "CHOPPED"},
+        # "COOK_STATE": {"RAW", "COOKED", "BURNED"},
+    }
+    REL_TO_GROUP = {rel: grp for grp, rels in EXCLUSIVE_OUTGOING.items() for rel in rels}
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.graph = nx.DiGraph()
+
+        # MultiDiGraph lets us store multiple relations between the same nodes.
+        # We'll store relation as the EDGE KEY (key=relation).
+        self.graph = nx.MultiDiGraph()
+
         self.current_room = "Unknown"
-        
+        self.turn_id = 0
+        self.last_action = "None"
+
         # We will use raw HTTP requests for graph extraction to bypass llm key conflicts
         self.triton_url = "https://tritonai-api.ucsd.edu/v1/chat/completions"
         self.triton_key = os.environ.get("TRITON_API_KEY", "")
@@ -36,7 +53,40 @@ class GraphAgent(LLMAgent):
         super().reset(obs, info, env_name)
         self.graph.clear()
         self.current_room = "Unknown"
+        self.turn_id = 0
         self.last_action = "None"
+
+    # -------------------------
+    # Canonicalization helpers
+    # -------------------------
+    _ARTICLE_RE = re.compile(r"^(a|an|the)\s+", re.IGNORECASE)
+
+    def _canon_entity(self, s: str) -> str:
+        """Normalize entity strings to reduce trivial duplicates."""
+        if not isinstance(s, str):
+            return ""
+        s = s.strip()
+        if not s:
+            return ""
+
+        # remove leading articles
+        s = self._ARTICLE_RE.sub("", s).strip()
+
+        # normalize whitespace
+        s = re.sub(r"\s+", " ", s)
+
+        # normalize Player
+        if s.lower() in {"player", "you", "yourself", "me"}:
+            return "Player"
+
+        # mild title-casing; keeps 'UCSD' etc mostly fine
+        # (If you hate this, delete and just return s.)
+        return s[0].upper() + s[1:]
+
+    def _canon_relation(self, r: str) -> str:
+        if not isinstance(r, str):
+            return ""
+        return r.strip().upper()
 
     def _extract_triplets(self, text, action):
         """
@@ -60,7 +110,6 @@ class GraphAgent(LLMAgent):
         messages = [{"role": "system", "content": prompt}, {"role": "user", "content": "Extract triplets now."}]
 
         try:
-            # We call Triton natively to bypass LiteLLM's aggressive API key resolution from os.environ
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {self.triton_key}"
@@ -74,25 +123,55 @@ class GraphAgent(LLMAgent):
             response.raise_for_status()
             response_data = response.json()
             response_text = response_data["choices"][0]["message"]["content"]
-            
-            # Clean up potential markdown formatting from the response
+
             clean_text = re.sub(r"```python|```", "", response_text).strip()
             triplets = ast.literal_eval(clean_text)
 
-            if isinstance(triplets, list) and all(
-                isinstance(t, tuple) and len(t) == 3 for t in triplets
-            ):
+            if isinstance(triplets, list) and all(isinstance(t, tuple) and len(t) == 3 for t in triplets):
                 return triplets
             return []
         except Exception as e:
-            # If the LLM output is malformed, fail gracefully
             print(f"[Graph Extraction Error]: {e}")
             return []
 
+    # -------------------------
+    # Fix #1: Stateful deletion
+    # -------------------------
+    def _remove_conflicting_edges(self, subject: str, relation: str):
+        """
+        Enforce mutual exclusivity groups (e.g., LOCATION).
+        Removes all outgoing edges from `subject` whose relation-key is in the same group.
+        """
+        group = self.REL_TO_GROUP.get(relation)
+        if not group:
+            return
+
+        rels = self.EXCLUSIVE_OUTGOING[group]
+        # MultiDiGraph: out_edges(..., keys=True) yields (u, v, k)
+        for u, v, k in list(self.graph.out_edges(subject, keys=True)):
+            if k in rels:
+                self.graph.remove_edge(u, v, key=k)
+
     def _update_graph(self, triplets):
-        """Updates the NetworkX graph with the extracted triplets."""
+        """Updates the NetworkX graph with the extracted triplets (with stateful deletion)."""
         for subject, relation, obj in triplets:
-            self.graph.add_edge(subject, obj, relation=relation)
+            s = self._canon_entity(subject)
+            r = self._canon_relation(relation)
+            o = self._canon_entity(obj)
+
+            if not s or not r or not o:
+                continue
+
+            # 1) delete conflicting facts (e.g. old location) BEFORE adding new one
+            self._remove_conflicting_edges(s, r)
+
+            # 2) add the new fact; relation stored as edge KEY
+            self.graph.add_edge(s, o, key=r, last_seen=self.turn_id)
+
+            # OPTIONAL: keep current room updated if you ever extract it
+            # If you extend extraction to emit ("Player","INSIDE","Kitchen"), this will track it.
+            if s == "Player" and r in {"INSIDE", "IN_ROOM"}:
+                self.current_room = o
 
     def _get_graph_context(self):
         """Stringifies the current graph state for the LLM context."""
@@ -100,38 +179,39 @@ class GraphAgent(LLMAgent):
             return "No mapped surroundings yet."
 
         context = "Current Graph State (Known Map & Objects):\n"
-        for u, v, data in self.graph.edges(data=True):
-            context += f"- {u} is {data.get('relation', 'RELATED_TO')} {v}\n"
+        # MultiDiGraph: edges(keys=True, data=True) yields u, v, k, data
+        for u, v, k, data in self.graph.edges(keys=True, data=True):
+            # k is the relation
+            context += f"- {u} is {k} {v}\n"
+
+        # OPTIONAL: include current room if known
+        if self.current_room != "Unknown":
+            context += f"\n[Player Location]\n- Player is in {self.current_room}\n"
+
         return context
 
     def build_messages(self, observation):
         messages = super().build_messages(observation)
-
-        # Inject the current graph state into the most recent prompt
         graph_state = self._get_graph_context()
         messages[-1]["content"] += f"\n\n[Knowledge Graph Tracker]\n{graph_state}"
-
         return messages
 
     def act(self, obs, reward, done, infos):
-        # 1. Parse current observation into triplets
+        # advance a logical clock so edges can store last_seen
+        self.turn_id += 1
+
         last_action = getattr(self, "last_action", "None")
         triplets = self._extract_triplets(obs, last_action)
 
-        # 2. Update the internal Graph DB
         self._update_graph(triplets)
 
-        # 3. Proceed with standard LLM reasoning augmented by the Graph Context
         action, stats = super().act(obs, reward, done, infos)
-        
         self.last_action = action
-
         return action, stats
 
 
 def build_argparser(parser=None):
     from agents.llm import build_argparser as llm_build_argparser
-
     parser = llm_build_argparser(parser)
     return parser
 
