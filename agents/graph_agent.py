@@ -195,8 +195,13 @@ class GraphAgent(LLMAgent):
         messages = super().build_messages(observation)
         graph_state = self._get_graph_context()
         
-        # Inject the valid commands list to prevent hallucinating actions
-        valid_commands_help = """
+        adm = getattr(self, "_current_admissible", [])
+        if adm:
+            adm_str = "\n".join([f"  {a}" for a in adm])
+            valid_commands_help = f"[Current Admissible Commands]\n{adm_str}\n\n[CRITICAL INSTRUCTION]\nYou MUST ONLY reply with a single exact command from the [Current Admissible Commands] list above.\nDo NOT use synonyms. Do NOT invent new verbs."
+        else:
+            # Inject the valid commands list to prevent hallucinating actions
+            valid_commands_help = """
 [Available Commands Reference]
   look:                describe the current room
   goal:                print the goal of this game
@@ -239,12 +244,33 @@ If you want to cook a carrot, you MUST output: `cook carrot with oven` or `cook 
         # advance a logical clock so edges can store last_seen
         self.turn_id += 1
 
+        adm = infos.get("admissible_commands") if isinstance(infos, dict) else None
+        self._current_admissible = [str(a) for a in adm] if adm else []
+
         last_action = getattr(self, "last_action", "None")
         triplets = self._extract_triplets(obs, last_action)
 
         self._update_graph(triplets)
 
         action, stats = super().act(obs, reward, done, infos)
+
+        # Fallback to admissible actions if invalid
+        if self._current_admissible:
+            matched = False
+            for cmd in self._current_admissible:
+                if action.lower() in cmd.lower() or cmd.lower() in action.lower():
+                    action = cmd
+                    matched = True
+                    break
+            
+            if not matched:
+                action = self.rng.choice(self._current_admissible)
+            
+            # Overwrite the action in the history so we don't pollute context
+            if self.history:
+                last_obs, _ = self.history[-1]
+                self.history[-1] = (last_obs, f"{action}\n")
+
         self.last_action = action
         return action, stats
 
