@@ -47,6 +47,7 @@ def evaluate(agent, env_name, args):
         if not args.force_failed or summary["status"] == "finished":
             log.info(colored("Skipped, already done.", "yellow"))
             log.removeHandler(fh)
+            fh.close()
             return summary
 
     run_name = f"{env_name} - {agent.uid}"
@@ -60,6 +61,7 @@ def evaluate(agent, env_name, args):
             if wandb_run.state in ("finished", "running"):
                 log.info(colored("Skipped, already exists.", "yellow"))
                 log.removeHandler(fh)
+                fh.close()
                 summary = {
                     "status": wandb_run.state,
                     "env_name": env_name,
@@ -330,6 +332,7 @@ def evaluate(agent, env_name, args):
     wandb_run.finish(exit_code=int(status != "finished"))
 
     log.removeHandler(fh)
+    fh.close()
     return summary
 
 
