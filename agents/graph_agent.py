@@ -103,6 +103,7 @@ class GraphAgent(LLMAgent):
         1. Subjects and Objects should be properly capitalized nouns (e.g., "Apple", "Kitchen", "Red Door").
         2. Relations should be uppercase keywords. Use these primarily: INSIDE, ON_TOP_OF, CONNECTED_TO, NORTH_OF, SOUTH_OF, EAST_OF, WEST_OF, HELD_BY, PART_OF.
         3. Only output a strict valid Python list of tuples. Do not output ANY other text or explanations.
+        4. CRITICAL: Do NOT extract physical relationships from written text, recipes, or descriptions. If a Cookbook says "Ingredients: block of cheese", the cheese is NOT physically `INSIDE` the cookbook! It is just text. Ignore recipes when extracting physical state.
         
         Example Output:
         [("Apple", "INSIDE", "Refrigerator"), ("Kitchen", "WEST_OF", "Living Room"), ("Knife", "HELD_BY", "Player")]
