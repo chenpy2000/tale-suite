@@ -264,15 +264,15 @@ If you want to cook a carrot, you MUST output: `cook carrot with oven` or `cook 
                     break
             
             if not matched:
-                action = self.rng.choice(self._current_admissible)
+                action = str(self.rng.choice(self._current_admissible))
             
             # Overwrite the action in the history so we don't pollute context
             if self.history:
                 last_obs, _ = self.history[-1]
                 self.history[-1] = (last_obs, f"{action}\n")
 
-        self.last_action = action
-        return action, stats
+        self.last_action = str(action)
+        return str(action), stats
 
 
 def build_argparser(parser=None):
