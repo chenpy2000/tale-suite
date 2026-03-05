@@ -256,6 +256,21 @@ If you want to cook a carrot, you MUST output: `cook carrot with oven` or `cook 
 
         # Fallback to admissible actions if invalid
         if self._current_admissible:
+            # Force add implicitly valid commands missing from TextWorld's admissible list
+            for implicit_cmd in ["inventory", "look"]:
+                if implicit_cmd not in self._current_admissible:
+                    self._current_admissible.append(implicit_cmd)
+                    
+            # TextWorld omits 'examine <item>' for items inside the inventory!
+            # Reinject them based on our Knowledge Graph so the LLM isn't blinded.
+            if hasattr(self, 'graph'):
+                for u, v, k, data in self.graph.edges(data=True, keys=True):
+                    if data.get('rel') == 'HELD_BY':
+                        item = u if v.lower() == 'player' else v
+                        exam_cmd = f"examine {item.lower()}"
+                        if exam_cmd not in self._current_admissible:
+                            self._current_admissible.append(exam_cmd)
+
             matched = False
             for cmd in self._current_admissible:
                 if action.lower() in cmd.lower() or cmd.lower() in action.lower():
