@@ -217,7 +217,20 @@ class GraphAgent(LLMAgent):
   chop ... with ...:   chop cuttable food with something sharp
   dice ... with ...:   dice cuttable food with something sharp
   prepare meal:        combine ingredients from inventory into a meal
+
+[CRITICAL INSTRUCTION]
+You MUST ONLY reply with a single command chosen EXACTLY from the formats in the [Available Commands Reference] above.
+Do NOT use synonyms. Do NOT invent new verbs like "use", "make", or "pick up".
+If you want to cook a carrot, you MUST output: `cook carrot with oven` or `cook carrot with stove`. NOT `use oven to roast carrot`.
 """
+        
+        # Override the generic LLMAgent system prompt to be strictly compliant
+        messages[0]["content"] = (
+            "You are an expert player of a text-based cooking adventure game. Your goal is to finish the recipe with the highest score.\n"
+            "You must meticulously read the [Knowledge Graph Tracker] to understand your environment.\n"
+            "You must strictly output ONLY ONE valid command per turn."
+        )
+
         messages[-1]["content"] += f"\n\n{valid_commands_help}\n[Knowledge Graph Tracker]\n{graph_state}"
         return messages
 
