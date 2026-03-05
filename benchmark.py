@@ -162,6 +162,7 @@ def evaluate(agent, env_name, args):
                 breakpoint()
 
             prev_obs = obs
+            admissible_before_action = list(info.get("admissible_commands") or [])
 
             # Force one action per step.
             if "\n" in action.strip():
@@ -178,8 +179,8 @@ def evaluate(agent, env_name, args):
 
             if (
                 args.admissible_commands
-                and info["admissible_commands"]
-                and action not in info["admissible_commands"]
+                and admissible_before_action
+                and action not in admissible_before_action
             ):
                 nb_invalid_actions += 1
 
@@ -352,12 +353,21 @@ def benchmark(agent, args):
         total_steps += summary["nb_steps"]
         total_invalid += summary["nb_invalid_actions"]
 
+        token_eff = summary.get(
+            "token_efficiency", summary.get("final/Token Efficiency")
+        )
+        doom_loop = summary.get("doom_loop_count", summary.get("final/Doom Loop Count"))
+        token_eff_str = f"{float(token_eff):8.2f}" if token_eff is not None else "   n/a  "
+        doom_loop_str = f"{int(doom_loop):4d}" if doom_loop is not None else " n/a"
+
         msg = (
             f"{env.ljust(max_env_name)}"
             f"  Steps: {summary['nb_steps']:4d}/{args.nb_steps:4d}"
             f"  Time: {datetime.timedelta(seconds=int(summary['duration']))}"
             f"{summary['nb_resets']:4d} resets"
             f"  Score: {summary['highscore']:3d}/{summary['max_score']:3d} ({summary['norm_score']:6.2%})"
+            f"  TokenEff: {token_eff_str}"
+            f"  DoomLoop: {doom_loop_str}"
         )
 
         log.critical(msg)
@@ -526,9 +536,9 @@ def main():
     agent = Agent(**vars(args))
     agent.new = partial(Agent, **vars(args))
 
-    # After agents are initialized (which buffers the keys they need),
-    # remove OPENAI_API_KEY to prevent liteLLM from overriding TRITON_API_KEY globally.
-    os.environ.pop("OPENAI_API_KEY", None)
+    if args.subcommand == "llm-vqvae" and not args.admissible_commands:
+        log.warning("llm-vqvae needs admissible commands; enabling --admissible-commands")
+        args.admissible_commands = True
 
     # Create logging directory.
     args.log_dir = pjoin(args.log_dir, f"tales_{agent.uid.replace('/', '-')}")
