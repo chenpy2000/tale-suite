@@ -1,0 +1,4 @@
+{
+  "// Note": "This file stores secret API credentials. Do not share!",
+  "TRITONAI_API_KEY": "your_tritonai_api_key_here"
+}
