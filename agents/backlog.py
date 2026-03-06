@@ -26,6 +26,21 @@ from tales.utils import (
 # Prompts
 # -----------------------------
 
+GOAL_MAKER_SYSTEM_PROMPT = (
+    "You are a goal maker for a text-based game agent.\n"
+    "Your job is to infer ONE long-term goal from the game's initial observation.\n\n"
+    "Rules:\n"
+    " - Use the game's opening instruction/objective if it is explicitly stated.\n"
+    " - The long-term goal should be high-level and stable across the episode.\n"
+    " - Do NOT produce a short-term actionable task like 'go to kitchen'.\n"
+    " - Do NOT include explanations.\n"
+    " - If the opening observation does not specify a clear final objective, output exactly:\n"
+    "   achieve as much score as possible\n\n"
+    "Example:\n"
+    "Opening observation: 'You are hungry! Let's cook a delicious meal. Check the cookbook in the kitchen for the recipe. Once done, enjoy your meal!'\n"
+    "Output: Find the kitchen and prepare meal and then eat the meal to avoid hunger\n"
+)
+
 PLANNER_SYSTEM_PROMPT = (
     "You are a planner for a text-based game agent.\n"
     "Your ONLY job is to maintain a task backlog:\n"
@@ -35,7 +50,9 @@ PLANNER_SYSTEM_PROMPT = (
     "Task requirements:\n"
     " - Short-term and actionable (can be tested with a few moves)\n"
     " - Verifiable from observations/feedback\n"
-    " - Do NOT skip too far (avoid high-level goals like 'prepare meal' unless you got all ingredients)\n\n"
+    " - Candidate tasks must directly help progress the long-term goal\n"
+    " - Filter out irrelevant, redundant, or curiosity-only actions that do not help the long-term goal\n"
+    " - Prefer the next short-horizon bottleneck step toward the long-term goal\n\n"
     "You must judge the active task state as one of:\n"
     " - progressing: evidence of progress but not finished)\n"
     " - completed_and_useful: finished and helped game progress (score/new information/new access/item)\n"
@@ -59,7 +76,12 @@ PLANNER_SYSTEM_PROMPT = (
     "   Actions over many steps: look/go east/go west/help with no new info and no score change\n"
     "   Observation trend: repeated dead-ends, no progress signal\n"
     "   -> unprogressed\n\n"
-
+    "Navigation and exploration rules:\n"
+    " - If the long-term goal or current observation explicitly mentions a target location (for example, kitchen), prioritize reaching that location before unrelated interactions.\n"
+    " - Before reaching the target location, avoid spending actions on irrelevant objects, containers, or furniture unless they are required to unlock movement.\n"
+    " - When the target location has not been found yet, candidate tasks should focus on navigation and systematic exploration.\n"
+    " - Prefer unexplored exits and directions over re-checking already explored areas.\n"
+    " - Opening a door is useful only if it helps access an unexplored or goal-relevant path.\n\n"
     "IMPORTANT RULES:\n"
     " - For planning future tasks, you may use the full history.\n"
     " - If task starts with find/locate/open/read/examine and observation confirms target discovered/opened/read, mark task as completed_* in this step.\n"
@@ -71,7 +93,7 @@ PLANNER_SYSTEM_PROMPT = (
     " - Always include one short evidence line from latest observation/feedback for the state decision.\n"
     " - <evidence> must be <= 20 words and quote concrete signals about how you judge <active_task_before> (e.g., 'score +1', 'You can't go that way.').\n"
     " - Always include current location in this exact tag format: <location> ... <location>.\n"
-    " - When writing <active_task_after> and each <candidate task>, include location context for location-dependent tasks (e.g., 'go north from kitchen').\n"
+    " - Every <candidate task> must be relevant to and advance the long-term goal.\n"
     " - Output ONLY required tags; no extra explanation text.\n"
     " - When changing active task, pick one of the candidate tasks if available. Otherwise, come up with a new task based on the observation.\n"
     "Output must follow the exact format:\n"
@@ -90,18 +112,48 @@ PLANNER_SYSTEM_PROMPT = (
     "<evidence> 'You take the block of cheese.' and score increased by 1 <evidence>\n"
     "<active_task_after> find cookbook <active_task_after>\n"
     "<candidate task> examine cookbook <candidate task>\n"
-    "<candidate task> find and take the first ingredient <candidate task>\n"
+    "<candidate task> some direction mentioned in cookbook <candidate task>\n"
 
 )
 
 ACTOR_SYSTEM_PROMPT = (
-    "You are playing a text-based game and your goal is to finish it with the highest score.\n"
-    "Upon reading the text observation and the CURRENT TASK, you must:\n"
-    "1) Think briefly about what to do next to advance the current task.\n"
-    "2) Output a single short phrase action to interact with the game (e.g., 'examine cookbook').\n"
-    "Wording is important. When you do something second time, you don't need to use 'again'. "
-    "When stuck, try using the 'help' command to see available actions.\n\n"
-    "Output only the action command, exactly one line, no tags, no explanation.\n"
+    "You are the action executor for a text-based game agent.\n"
+    "You must choose exactly ONE next action based on the current observation, history, current task, and long-term goal.\n\n"
+
+    "Decision hierarchy:\n"
+    " - Long-term goal is the overall objective for the episode.\n"
+    " - Current task is the immediate short-term subgoal chosen to advance the long-term goal.\n"
+    " - Your action must directly advance the current task.\n"
+    " - Use the long-term goal as a guardrail and tie-breaker: avoid irrelevant actions, and if multiple actions could help the current task, prefer the one that better supports the long-term goal.\n\n"
+
+    "Action requirements:\n"
+    " - Output exactly one concrete in-game action.\n"
+    " - The action should be immediately executable in the game.\n"
+    " - Prefer simple, standard text-game commands.\n"
+    " - If the current task is clear, choose an action that makes concrete progress on it.\n"
+    " - If the current task cannot currently be advanced directly, choose the best supporting action that helps unlock progress while still remaining relevant to the long-term goal.\n"
+    " - Avoid actions that are irrelevant to both the current task and the long-term goal.\n"
+    " - Do not explore out of curiosity unless exploration is necessary to make progress on the current task or long-term goal.\n"
+    " - If an object, direction, location, or interaction target is explicitly mentioned in the observation and is relevant, prefer using it.\n\n"
+
+    "When choosing actions:\n"
+    " - Prefer actions that interact with newly observed objects, containers, tools, exits, ingredients, or instructions relevant to the task.\n"
+    " - Prefer reading, opening, taking, moving, examining, or using objects when these are clearly helpful for the task.\n"
+    " - If navigation is required, choose the single best movement action that progresses toward the task.\n"
+    " - If multiple actions are plausible, choose the one with the highest immediate usefulness.\n\n"
+
+    "Navigation discipline:\n"
+    " - If a target location is known to be important (for example, kitchen), prioritize movement actions that help locate or reach it.\n"
+    " - Do not interact with irrelevant objects just because they are mentioned in the observation.\n"
+    " - Do not open containers or examine objects unless doing so is necessary for the current task or likely to reveal information relevant to the long-term goal.\n"
+    " - Opening a door is not a goal by itself; only do it when it enables progress toward the current task or target location.\n"
+    " - When exploring, prefer a systematic strategy: try an unvisited exit from the current room before revisiting known paths.\n"
+
+    "Output format:\n"
+    " - Return only the action string.\n"
+    " - Do not provide explanation.\n"
+    " - Do not provide multiple candidates.\n"
+    " - Do not wrap the action in JSON, XML, markdown, or quotes.\n"
 )
 
 
@@ -321,6 +373,7 @@ class SimplePlanningAgent(tales.Agent):
         self.current_task: str = kwargs.get("init_task") or "Explore the environment (try 'look' or 'help')."
         self.current_location: Optional[str] = None
         self.candidate_tasks: List[str] = []
+        self.long_term_goal: str = "achieve as much score as possible"
         self.completed_and_useful_tasks: Set[str] = set()
         self.completed_but_useless_tasks: Set[str] = set()
         # Backward compatibility for existing logs/bench tooling.
@@ -387,6 +440,25 @@ class SimplePlanningAgent(tales.Agent):
         prompt = messages[-1]["content"]
         return self._llm_call_from_conversation(conversation, prompt=prompt, system=system, *args, **kwargs)
 
+    def _build_llm_kwargs(self, *, temperature: float, max_tokens: int) -> dict:
+        kwargs = {
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "seed": self.seed,
+            "stream": False,
+        }
+        if self.llm in [
+            "claude-3.5-haiku",
+            "claude-3.5-sonnet",
+            "claude-3.5-sonnet-latest",
+            "claude-3.7-sonnet",
+        ]:
+            kwargs.pop("seed", None)
+        if "gemini" in self.llm or "gemma" in self.llm:
+            kwargs.pop("seed", None)
+            kwargs["max_output_tokens"] = kwargs.pop("max_tokens")
+        return kwargs
+
     def reset(self, obs, info, env_name=None):
         # Keep success/failed/unprogressed across restarts (as per design),
         # but re-seed step counters.
@@ -429,6 +501,23 @@ class SimplePlanningAgent(tales.Agent):
                 continue
             return loc
         return None
+    
+    def build_goal_messages(self, observation: str, info: dict) -> List[dict]:
+        messages = [{"role": "system", "content": GOAL_MAKER_SYSTEM_PROMPT}]
+
+        prompt = (
+            f"Initial observation:\n{observation}\n\n"
+            f"Output the single long-term goal only.\n"
+        )
+
+        messages.append({"role": "user", "content": prompt})
+        messages = merge_messages(messages)
+
+        if not self.conversation:
+            content = "".join([msg["content"] for msg in messages[1:]])
+            messages = messages[:1] + [{"role": "user", "content": content}]
+
+        return messages
 
     def build_plan_messages(self, observation: str, info: dict) -> List[dict]:
         messages = [{"role": "system", "content": PLANNER_SYSTEM_PROMPT}]
@@ -451,7 +540,11 @@ class SimplePlanningAgent(tales.Agent):
 
         backlog_str = (
             f"Active task before planning: {self.current_task}\n"
-            f"Candidate tasks:\n" + "\n".join([f"- {t}" for t in self.candidate_tasks]) if self.candidate_tasks else "Candidate tasks:\n- (none)"
+            + (
+                "Candidate tasks:\n" + "\n".join([f"- {t}" for t in self.candidate_tasks])
+                if self.candidate_tasks
+                else "Candidate tasks:\n- (none)"
+            )
         )
 
         # Add minimal progress hints
@@ -471,6 +564,7 @@ class SimplePlanningAgent(tales.Agent):
         )
 
         prompt = (
+            f"Long-term goal: {self.long_term_goal}\n"
             f"Current Episode: {self.episode_idx}\n"
             f"Step: {self.step_idx + 1}\n"
             f"Active Task Start Step: {active_start_step}\n"
@@ -512,6 +606,7 @@ class SimplePlanningAgent(tales.Agent):
         prompt = (
             f"Current Episode: {self.episode_idx}\n"
             f"Step: {self.step_idx + 1}\n"
+            f"Long-term goal: {self.long_term_goal}\n"
             f"CURRENT TASK:\n{self.current_task}\n\n"
             f"{admissible_block}"
             f"Recent history:\n{history_str}\n\n"
@@ -556,27 +651,24 @@ class SimplePlanningAgent(tales.Agent):
         if observed_location:
             self.current_location = observed_location
 
-        # 1) PLAN
+        goal_messages = None
+        goal_resp = None
+        goal_text = None
+
+        # 1) GOAL MAKER (one-time at episode 1, step 1)
+        if self.episode_idx == 1 and self.step_idx == 0:
+            goal_messages = self.build_goal_messages(obs, infos)
+            goal_kwargs = self._build_llm_kwargs(temperature=0.2, max_tokens=60)
+            goal_resp = self._llm_call_from_messages(goal_messages, **goal_kwargs)
+            goal_text = goal_resp.text().strip()
+            if goal_text:
+                self.long_term_goal = goal_text.splitlines()[0].strip()
+            else:
+                self.long_term_goal = "achieve as much score as possible"
+
+        # 2) PLAN
         plan_messages = self.build_plan_messages(obs, infos)
-        plan_kwargs = {
-            "temperature": self.plan_temp,
-            "max_tokens": 300,
-            "seed": self.seed,
-            "stream": False,
-        }
-
-        # Handle providers that don't accept seed / token param name differences
-        if self.llm in [
-            "claude-3.5-haiku",
-            "claude-3.5-sonnet",
-            "claude-3.5-sonnet-latest",
-            "claude-3.7-sonnet",
-        ]:
-            plan_kwargs.pop("seed", None)
-        if "gemini" in self.llm or "gemma" in self.llm:
-            plan_kwargs.pop("seed", None)
-            plan_kwargs["max_output_tokens"] = plan_kwargs.pop("max_tokens")
-
+        plan_kwargs = self._build_llm_kwargs(temperature=self.plan_temp, max_tokens=300)
         plan_resp = self._llm_call_from_messages(plan_messages, **plan_kwargs)
         plan_text = plan_resp.text().strip()
         plan_result = parse_plan_output(plan_text)
@@ -605,7 +697,7 @@ class SimplePlanningAgent(tales.Agent):
                 if plan_result.candidate_tasks:
                     self.current_task = plan_result.candidate_tasks[0]
                 else:
-                    self.current_task = "Explore the environment (try 'look' or 'help')."
+                    self.current_task = "Explore the environment (try 'look' or 'help' or examine relevant items)."
 
             self.current_task_start_step = self.step_idx + 1
             self.last_progress_step = self.step_idx  # reset window
@@ -627,25 +719,9 @@ class SimplePlanningAgent(tales.Agent):
                 seen.add(t2)
         self.candidate_tasks = candidates[:10]
 
-        # 2) ACT
+        # 3) ACT
         act_messages = self.build_act_messages(obs, infos)
-        act_kwargs = {
-            "temperature": self.act_temp,
-            "max_tokens": 120,
-            "seed": self.seed,
-            "stream": False,
-        }
-        if self.llm in [
-            "claude-3.5-haiku",
-            "claude-3.5-sonnet",
-            "claude-3.5-sonnet-latest",
-            "claude-3.7-sonnet",
-        ]:
-            act_kwargs.pop("seed", None)
-        if "gemini" in self.llm or "gemma" in self.llm:
-            act_kwargs.pop("seed", None)
-            act_kwargs["max_output_tokens"] = act_kwargs.pop("max_tokens")
-
+        act_kwargs = self._build_llm_kwargs(temperature=self.act_temp, max_tokens=120)
         act_resp = self._llm_call_from_messages(act_messages, **act_kwargs)
         act_text = act_resp.text().strip()
         act_result = parse_act_output(act_text)
@@ -663,6 +739,11 @@ class SimplePlanningAgent(tales.Agent):
 
         # Compute usage stats (separate plan vs act)
         stats = {
+            # GOAL
+            "long_term_goal": self.long_term_goal,
+            "goal_response": goal_resp.text() if goal_resp is not None else None,
+            "nb_tokens_goal_prompt": self.token_counter(messages=goal_messages) if goal_messages is not None else 0,
+            "nb_tokens_goal_response": self.token_counter(text=goal_resp.text()) if goal_resp is not None else 0,
             # PLAN
             "plan_prompt": format_messages_to_markdown(plan_messages),
             "plan_response": plan_resp.text(),
@@ -682,7 +763,8 @@ class SimplePlanningAgent(tales.Agent):
 
         stats["nb_tokens_plan"] = stats["nb_tokens_plan_prompt"] + stats["nb_tokens_plan_response"]
         stats["nb_tokens_act"] = stats["nb_tokens_act_prompt"] + stats["nb_tokens_act_response"]
-        stats["nb_tokens"] = stats["nb_tokens_plan"] + stats["nb_tokens_act"]
+        stats["nb_tokens_goal"] = stats.get("nb_tokens_goal_prompt", 0) + stats.get("nb_tokens_goal_response", 0)
+        stats["nb_tokens"] = stats["nb_tokens_plan"] + stats["nb_tokens_act"] + stats["nb_tokens_goal"]
 
         # Snapshots for benchmark printing
         stats["current_task"] = self.current_task
