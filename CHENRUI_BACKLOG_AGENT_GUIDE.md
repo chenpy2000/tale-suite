@@ -13,6 +13,14 @@ Use `benchmark_for_backlog.py` from the project root.
 python benchmark_for_backlog.py --agent agents/backlog.py backlog --conversation --envs textworld --nb-steps 50 --admissible-commands --llm api-llama-4-scout -ff
 ```
 
+## Model Notes
+
+- `--llm api-llama-4-scout` uses a model registered in `.llm/extra-openai-models.yaml`.
+- You can similarly switch to other models registered in the same file.
+- In our tests, reasoning-style models (for example, `api-gpt-oss-120b` and `minimax.minimax-m2`) often returned empty outputs in this pipeline.
+- A likely reason is response-format mismatch for reasoning models (their output structure may differ from the current parser assumptions).
+- Recommendation: prefer non-reasoning chat models for this agent setup.
+
 ## Agent Design Overview
 
 ### 1) Goal Maker (Long-Term Goal)
