@@ -1,7 +1,8 @@
+
 import argparse
 import datetime
 import glob
-import importlib
+import importlib.util
 import json
 import logging
 import os
@@ -23,13 +24,11 @@ from tales.utils import NumpyEncoder
 
 os.environ["WANDB_MODE"] = "disabled"
 
+
 def _append_goal_summary_once(agent, snapshot_log_path: str = None):
     if not snapshot_log_path:
         return
-    long_term_goal = getattr(agent, "long_term_goal", None)
-    if not long_term_goal:
-        long_term_goal = "(none)"
-
+    long_term_goal = getattr(agent, "long_term_goal", None) or "(none)"
     msg = (
         "\n=== Long-Term Goal Summary ===\n"
         f"{long_term_goal}\n"
@@ -38,101 +37,99 @@ def _append_goal_summary_once(agent, snapshot_log_path: str = None):
     with open(snapshot_log_path, "a", encoding="utf-8") as f:
         f.write(msg)
 
-def _append_map_summary_snapshot(step: int, stats: dict, snapshot_log_path: str = None):
+
+def _print_agent_snapshot(step: int, agent, snapshot_log_path: str = None):
     if not snapshot_log_path:
         return
 
-    map_summary = (stats or {}).get("map_summary")
-    map_summary = str(map_summary).strip() if map_summary else "(empty)"
+    current_location = getattr(agent, "current_location", None)
+    map_summary = getattr(agent, "_build_map_summary", lambda: "(unavailable)")()
+    useful_scoring = getattr(agent, "useful_scoring_actions", [])
+    useful_non_scoring = getattr(agent, "useful_non_scoring_actions", [])
+    useless = getattr(agent, "useless_actions", [])
+    failed = getattr(agent, "failed_actions", [])
+    completed_this_episode = sorted(getattr(agent, "completed_current_episode_actions", set()))
+
+    def _fmt(records):
+        if not records:
+            return "  - (none)\n"
+
+        # records is now a dict keyed by (action, location)
+        if isinstance(records, dict):
+            items = list(records.values())
+        else:
+            items = list(records)
+
+        items = sorted(
+            items,
+            key=lambda x: (
+                -int(x.get("last_episode", -1)) if isinstance(x, dict) else -1,
+                (x.get("location", "") if isinstance(x, dict) else "") or "",
+                (x.get("action", "") if isinstance(x, dict) else ""),
+            ),
+        )[:10]
+
+        lines = []
+        for rec in items:
+            if isinstance(rec, dict):
+                location = rec.get("location") or "(unknown)"
+                action = rec.get("action", "")
+                episode = rec.get("last_episode", "?")
+            else:
+                location = getattr(rec, "location", None) or "(unknown)"
+                action = getattr(rec, "action", "")
+                episode = getattr(rec, "episode", "?")
+
+            lines.append(f"  - {action} (last episode {episode}, {location})")
+
+        return "\n".join(lines) + "\n"
 
     msg = (
-        f"\n=== Map Summary @ step {step} ===\n"
-        f"{map_summary}\n"
-        f"=================================\n"
+        f"\n--- Agent Snapshot @ step {step} ---\n"
+        + (f"Current location:\n  - {current_location}\n" if current_location else "Current location:\n  - (unknown)\n")
+        + "Completed useful actions this episode:\n"
+        + ("\n".join(f"  - {a}" for a in completed_this_episode) + "\n" if completed_this_episode else "  - (none)\n")
+        + "Useful scoring actions:\n" + _fmt(useful_scoring)
+        + "Useful non-scoring actions:\n" + _fmt(useful_non_scoring)
+        + "Useless actions:\n" + _fmt(useless)
+        + "Failed actions:\n" + _fmt(failed)
+        + f"Map summary:\n{map_summary}\n"
+        + "--------------------------------------\n"
     )
     with open(snapshot_log_path, "a", encoding="utf-8") as f:
         f.write(msg)
 
-def _print_planning_snapshot(step: int, agent, snapshot_log_path: str = None):
-    # Agent may not have these fields; print only if present
-    if not hasattr(agent, "current_task"):
-        return
 
-    current_task = getattr(agent, "current_task", None)
-    completed_and_useful = sorted(
-        getattr(agent, "completed_and_useful_tasks", getattr(agent, "success_tasks", []))
-    )
-    completed_but_useless = sorted(getattr(agent, "completed_but_useless_tasks", []))
-    failed = sorted(getattr(agent, "failed_tasks", []))
-    unprog = sorted(getattr(agent, "unprogressed_tasks", []))
-    active_task_start_step = getattr(agent, "current_task_start_step", None)
-    current_location = getattr(agent, "current_location", None)
-
-    msg = (
-        f"\n--- Planning Snapshot @ step {step} ---\n"
-        + (f"Active task start step: {active_task_start_step}\n" if active_task_start_step is not None else "")
-        + (f"Current location:\n  - {current_location}\n" if current_location else "Current location:\n  - (unknown)\n")
-        + f"Current task:\n  - {current_task}\n"
-        + f"All previous completed_and_useful tasks ({len(completed_and_useful)}):\n  - "
-        + ("\n  - ".join(completed_and_useful) if completed_and_useful else "(none)")
-        + "\n"
-        + f"All previous completed_but_useless tasks ({len(completed_but_useless)}):\n  - "
-        + ("\n  - ".join(completed_but_useless) if completed_but_useless else "(none)")
-        + "\n"
-        + f"All previous failed tasks ({len(failed)}):\n  - "
-        + ("\n  - ".join(failed) if failed else "(none)")
-        + "\n"
-        + f"All previous unprogressed tasks ({len(unprog)}):\n  - "
-        + ("\n  - ".join(unprog) if unprog else "(none)")
-        + "\n"
-        + f"--------------------------------------\n"
-    )
-    if snapshot_log_path:
-        with open(snapshot_log_path, "a", encoding="utf-8") as f:
-            f.write(msg)
-
-
-def _append_plan_act_snapshot(step: int, stats: dict, snapshot_log_path: str = None):
+def _append_recommender_snapshot(step: int, stats: dict, snapshot_log_path: str = None):
     if not snapshot_log_path:
         return
-
-    plan_output = (stats or {}).get("plan_response")
-    act_output = (stats or {}).get("act_response")
-    plan_output = str(plan_output).strip() if plan_output else "(empty)"
-    act_output = str(act_output).strip() if act_output else "(empty)"
-
+    output = (stats or {}).get("recommend_response")
+    output = str(output).strip() if output else "(empty)"
     msg = (
-        f"\n=== Planner Output Snapshot @ step {step} ===\n"
-        f"{plan_output}\n"
-        f"=== Actor Output Snapshot @ step {step} ===\n"
-        f"{act_output}\n"
-        f"============================================\n"
+        f"\n=== Recommender Output Snapshot @ step {step} ===\n"
+        f"{output}\n"
+        f"===============================================\n"
     )
     with open(snapshot_log_path, "a", encoding="utf-8") as f:
         f.write(msg)
 
 
 def evaluate(agent, env_name, args):
-    env_params = (
-        f"a{int(args.admissible_commands)}_s{args.game_seed}_steps{args.nb_steps}"
-    )
+    env_params = f"a{int(args.admissible_commands)}_s{args.game_seed}_steps{args.nb_steps}"
     logdir = pjoin(args.log_dir, f"{env_name}")
     os.makedirs(logdir, exist_ok=True)
     summary_file = pjoin(logdir, f"{env_params}.json")
     rollouts_file = pjoin(logdir, f"{env_params}.jsonl")
     log_file = pjoin(logdir, f"{env_params}.log")
-    snapshot_log_file = pjoin(logdir, "planning_snapshots.log")
+    snapshot_log_file = pjoin(logdir, "recommender_snapshots.log")
     open(snapshot_log_file, "w", encoding="utf-8").close()
 
-    # Create new file handler for this env evaluation.
     fh = log.add_new_file_handler(log_file)
 
-    # Check if the game has already been evaluated.
     if not args.force_all and os.path.exists(summary_file):
         log.info(f"Previous evaluation found: {summary_file}")
         with open(summary_file) as reader:
             summary = json.load(reader)
-
         log.info(f"Previous evaluation status: {summary['status']}")
         if not args.force_failed or summary["status"] == "finished":
             log.info(colored("Skipped, already done.", "yellow"))
@@ -170,7 +167,6 @@ def evaluate(agent, env_name, args):
                 }
                 return summary
 
-    # initialize wandb
     wandb_config = {
         "version": tales.__version__,
         "game": env_name,
@@ -181,12 +177,7 @@ def evaluate(agent, env_name, args):
         "admissible_commands": args.admissible_commands,
         **agent.params,
     }
-    wandb_run = wandb.init(
-        project="tales",
-        config=wandb_config,
-        reinit=True,
-        name=run_name,
-    )
+    wandb_run = wandb.init(project="tales", config=wandb_config, reinit=True, name=run_name)
 
     env = gym.make(
         f"tales/{env_name}-v0",
@@ -202,7 +193,6 @@ def evaluate(agent, env_name, args):
 
     agent = agent.new()
     agent.reset(obs, info, env_name)
-
     log.debug(f"Environment reset.\n{obs}\n")
 
     status = "running"
@@ -226,31 +216,28 @@ def evaluate(agent, env_name, args):
             "episode/normalized_score": score / max_score,
             "episode/normalized_highscore": highscore / max_score,
             "episode/token_usage": 0,
-            "episode/token_usage_plan": 0,
-            "episode/token_usage_act": 0,
+            "episode/token_usage_recommend": 0,
         },
         step=0,
     )
 
     try:
-        pbar = tqdm(
-            range(1, args.nb_steps + 1), desc=f"  {env_name}", unit="steps", leave=False
-        )
-
+        pbar = tqdm(range(1, args.nb_steps + 1), desc=f"  {env_name}", unit="steps", leave=False)
         for step in pbar:
-            pbar.set_postfix_str(
-                f"Score: {info['score']}/{info['max_score']} ({info['score']/info['max_score']:.1%})"
-            )
-
+            pbar.set_postfix_str(f"Score: {info['score']}/{info['max_score']} ({info['score']/info['max_score']:.1%})")
             action, stats = agent.act(obs, score, done, info)
             log.debug(colored(f"> {action}", "green"))
+
+            if step == 1:
+                _append_goal_summary_once(agent, snapshot_log_file)
+            if step == 1 or step % 5 == 0:
+                _print_agent_snapshot(step, agent, snapshot_log_file)
+                _append_recommender_snapshot(step, stats, snapshot_log_file)
 
             if args.debug:
                 breakpoint()
 
             prev_obs = obs
-
-            # Force one action per step.
             if "\n" in action.strip():
                 obs = "The game only allows one action per step."
             else:
@@ -263,25 +250,13 @@ def evaluate(agent, env_name, args):
             highscore = max(score, highscore)
             norm_highscore = highscore / max_score
 
-            if (
-                args.admissible_commands
-                and info.get("admissible_commands")
-                and action not in info["admissible_commands"]
-            ):
+            if args.admissible_commands and info.get("admissible_commands") and action not in info["admissible_commands"]:
                 nb_invalid_actions += 1
 
-            msg = "{:5d}. Time: {:9.2f}\tScore: {:3d}\tMove: {:5d}\tAction: {:20s}"
-            msg = msg.format(step, time.time() - start_time, score, moves, action)
+            msg = "{:5d}. Time: {:9.2f}\tScore: {:3d}\tMove: {:5d}\tAction: {:20s}".format(
+                step, time.time() - start_time, score, moves, action
+            )
             log.info(msg)
-
-            if step == 1:
-                _append_goal_summary_once(agent, snapshot_log_file)
-
-            # Every 5 steps: print planning snapshot
-            if step % 5 == 0:
-                _append_map_summary_snapshot(step, stats, snapshot_log_file)
-                _print_planning_snapshot(step, agent, snapshot_log_file)
-                _append_plan_act_snapshot(step, stats, snapshot_log_file)
 
             wandb_run.log(
                 {
@@ -291,48 +266,41 @@ def evaluate(agent, env_name, args):
                     "episode/normalized_score": norm_score,
                     "episode/normalized_highscore": norm_highscore,
                     "episode/token_usage": stats.get("nb_tokens", 0),
-                    "episode/token_usage_plan": stats.get("nb_tokens_plan", 0),
-                    "episode/token_usage_act": stats.get("nb_tokens_act", 0),
+                    "episode/token_usage_recommend": stats.get("nb_tokens_recommend", 0),
                 },
                 step=step,
             )
 
-            # Store extra plan/act info for analysis
-            results.append(
-                [
-                    step,
-                    score,
-                    max_score,
-                    norm_score,
-                    moves,
-                    prev_obs,
-                    action,
-                    feedback,
-                    # Planning snapshots
-                    stats.get("current_location"),
-                    stats.get("current_task"),
-                    json.dumps(stats.get("success_tasks", []), ensure_ascii=False),
-                    json.dumps(stats.get("failed_tasks", []), ensure_ascii=False),
-                    json.dumps(stats.get("unprogressed_tasks", []), ensure_ascii=False),
-                    # Planner I/O
-                    stats.get("plan_prompt"),
-                    stats.get("plan_response"),
-                    stats.get("plan_old_state"),
-                    stats.get("plan_old_task"),
-                    stats.get("plan_new_task"),
-                    json.dumps(stats.get("plan_candidates", []), ensure_ascii=False),
-                    stats.get("nb_tokens_plan_prompt", 0),
-                    stats.get("nb_tokens_plan_response", 0),
-                    # Actor I/O
-                    stats.get("act_prompt"),
-                    stats.get("act_response"),
-                    stats.get("thinking"),
-                    stats.get("nb_tokens_act_prompt", 0),
-                    stats.get("nb_tokens_act_response", 0),
-                    # Totals
-                    stats.get("nb_tokens", 0),
-                ]
-            )
+            results.append([
+                step,
+                score,
+                max_score,
+                norm_score,
+                moves,
+                prev_obs,
+                action,
+                feedback,
+                stats.get("current_location"),
+                stats.get("long_term_goal"),
+                json.dumps(stats.get("completed_current_episode_actions", []), ensure_ascii=False),
+                json.dumps(stats.get("useful_scoring_actions", []), ensure_ascii=False),
+                json.dumps(stats.get("useful_non_scoring_actions", []), ensure_ascii=False),
+                json.dumps(stats.get("useless_actions", []), ensure_ascii=False),
+                json.dumps(stats.get("failed_actions", []), ensure_ascii=False),
+                stats.get("recommend_prompt"),
+                stats.get("recommend_response"),
+                stats.get("previous_action"),
+                stats.get("previous_action_outcome"),
+                stats.get("recommend_evidence"),
+                stats.get("next_action"),
+                stats.get("nb_tokens_recommend_prompt", 0),
+                stats.get("nb_tokens_recommend_response", 0),
+                stats.get("nb_tokens_goal_prompt", 0),
+                stats.get("nb_tokens_goal_response", 0),
+                stats.get("map_summary"),
+                stats.get("known_rooms"),
+                stats.get("nb_tokens", 0),
+            ])
 
             if not done:
                 log.debug(obs)
@@ -342,18 +310,16 @@ def evaluate(agent, env_name, args):
                     nb_wins += 1
                     if highscore == max_score:
                         log.debug(obs)
-                        break  # No reason to play that game more.
+                        break
                 elif info.get("lost"):
                     nb_losts += 1
 
-                # Replay the game in the hope of achieving a better score.
                 last_obs = obs
                 obs, info = env.reset()
                 obs = last_obs + "\n\n-= Restarting =-\n" + obs
                 agent.reset(obs, info, env_name)
                 nb_resets += 1
-
-                log.debug(f"{obs}")
+                log.debug(obs)
 
         status = "finished"
 
@@ -388,41 +354,15 @@ def evaluate(agent, env_name, args):
     }
 
     columns = [
-        "Step",
-        "Score",
-        "Max Score",
-        "Normalized Score",
-        "Moves",
-        "Observation",
-        "Action",
-        "Feedback",
-        # Planning snapshots
-        "Current Location",
-        "Current Task",
-        "Success Tasks",
-        "Failed Tasks",
-        "Unprogressed Tasks",
-        # Planner I/O
-        "Plan Prompt",
-        "Plan Response",
-        "Old Task State",
-        "Old Task",
-        "New Task",
-        "Plan Candidates",
-        "Plan Prompt Tokens",
-        "Plan Response Tokens",
-        # Actor I/O
-        "Act Prompt",
-        "Act Response",
-        "Thinking",
-        "Act Prompt Tokens",
-        "Act Response Tokens",
-        # Totals
-        "Token Usage Total",
+        "Step", "Score", "Max Score", "Normalized Score", "Moves", "Observation", "Action", "Feedback",
+        "Current Location", "Long-term Goal", "Completed Useful Actions (Current Episode)",
+        "Useful Scoring Actions", "Useful Non-Scoring Actions", "Useless Actions", "Failed Actions",
+        "Recommend Prompt", "Recommend Response", "Previous Action", "Previous Action Outcome",
+        "Evidence", "Next Action", "Recommend Prompt Tokens", "Recommend Response Tokens",
+        "Goal Prompt Tokens", "Goal Response Tokens", "Map Summary", "Known Rooms", "Token Usage Total",
     ]
 
     df = pd.DataFrame(results, columns=columns)
-
     total_tokens = int(df["Token Usage Total"].sum()) if len(df) else 0
     token_efficiency = compute_token_efficiency(total_tokens, highscore)
     doom_loop_count = compute_doom_loop_count(df)
@@ -447,10 +387,7 @@ def evaluate(agent, env_name, args):
         "final/Doom Loop Count": stats["doom_loop_count"],
     }
 
-    wandb_run.log(
-        {"episode/rollout": wandb.Table(dataframe=df), **wandb_stats},
-        step=stats["nb_steps"],
-    )
+    wandb_run.log({"episode/rollout": wandb.Table(dataframe=df), **wandb_stats}, step=stats["nb_steps"])
 
     summary = {
         "status": status,
@@ -468,9 +405,7 @@ def evaluate(agent, env_name, args):
     wandb.save(rollouts_file)
     wandb.save(log_file)
     wandb.save(summary_file)
-
     wandb_run.finish(exit_code=int(status != "finished"))
-
     log.removeHandler(fh)
     return summary
 
@@ -510,9 +445,7 @@ def benchmark(agent, args):
         mean_score += summary["norm_score"]
 
     if nb_envs > 0 and total_time > 0:
-        log.critical(
-            f"Mean score (over {nb_envs} games) = {mean_score / nb_envs:8.2%} of total possible"
-        )
+        log.critical(f"Mean score (over {nb_envs} games) = {mean_score / nb_envs:8.2%} of total possible")
         log.critical(f"Total time {total_time:9.2f} seconds")
         log.critical(f"Total {total_invalid} invalid actions")
         log.critical(f"Avg. speed: {total_steps / total_time:8.2f} steps per second")
@@ -558,7 +491,7 @@ def _maybe_load_agent_module():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
         "--agent",
-        default="agents/*.py",
+        default="./agents/*",
         help="Load external python file(s). Useful to register custom agent on-the-fly. Default: %(default)s",
     )
     args, _ = parser.parse_known_args()
@@ -578,7 +511,7 @@ def _maybe_load_agent_module():
 
 
 def parse_args():
-    description = "Benchmark some agent on interactive text environments (planning variant)."
+    description = "Benchmark some agent on interactive text environments (action recommender variant)."
     general_parser = argparse.ArgumentParser(add_help=False, description=description)
     general_parser.add_argument(
         "--agent",
@@ -649,7 +582,7 @@ def main():
     agent = Agent(**vars(args))
     agent.new = partial(Agent, **vars(args))
 
-    args.log_dir = pjoin(args.log_dir, f"tales_{agent.uid.replace('/', '-')}_plan")
+    args.log_dir = pjoin(args.log_dir, f"tales_{agent.uid.replace('/', '-')}_recommend")
     os.makedirs(args.log_dir, exist_ok=True)
     setup_logging(args)
     log.critical(colored(f"Logs will be saved in {os.path.abspath(args.log_dir)}", "magenta"))
