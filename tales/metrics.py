@@ -33,6 +33,8 @@ def compute_doom_loop_count(rollouts_df: pd.DataFrame, threshold: int = 3) -> in
     for _, row in rollouts_df.iterrows():
         action = row.get("Action", "")
         feedback = row.get("Feedback", "")
+        normalized_feedback = (feedback or "").strip().lower()
+        score = row.get("Score")
         action_feedback_pair = (action, feedback)
 
         if action_feedback_pair == current_action_feedback:
@@ -43,6 +45,9 @@ def compute_doom_loop_count(rollouts_df: pd.DataFrame, threshold: int = 3) -> in
             current_action_feedback = action_feedback_pair
             current_streak = 1
 
+        stall = previous_score is not None and score is not None and score <= previous_score
+        actions.append(action)
+        stalls.append(stall)
         previous_feedback = normalized_feedback
         previous_score = score
 

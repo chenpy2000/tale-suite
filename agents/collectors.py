@@ -144,6 +144,17 @@ class DiverseCollector(tales.Agent):
             self.steps = 0
         return a, {"prompt": None, "response": None, "nb_tokens": self.tok(text=obs or "")}
 
+    def episode_truncated(self, obs, info):
+        """Save in-progress trajectory when episode ends due to step limit."""
+        n = len(self.traj)
+        total_r = sum(s["reward"] for s in self.traj)
+        acts = [s["action"] for s in self.traj]
+        rep = max(acts.count(x) for x in set(acts)) / len(acts) if acts else 0
+        if n >= self.min_ep and total_r >= self.min_r and rep <= self.max_rep:
+            self.episodes.append({"env_name": self.env_name, "episode_idx": self.ep_idx, "num_steps": n, "trajectory": self.traj})
+            if self.autosave:
+                _save(self.path, self.uid, self.episodes, self.env_name, self.ep_idx + 1, [])
+
 
 class NoisyWalkthroughCollector(tales.Agent):
     """Follows extra.walkthrough when the game provides it. With probability noise_rate,
@@ -216,6 +227,13 @@ class NoisyWalkthroughCollector(tales.Agent):
             self.wi = 0
             self.deviated = False
         return a, {"prompt": None, "response": None, "nb_tokens": self.tok(text=obs or "")}
+
+    def episode_truncated(self, obs, info):
+        """Save in-progress trajectory when episode ends due to step limit."""
+        if len(self.traj) >= self.min_ep:
+            self.episodes.append({"env_name": self.env_name, "episode_idx": self.ep_idx, "num_steps": len(self.traj), "trajectory": self.traj})
+            if self.autosave:
+                _save(self.path, self.uid, self.episodes, self.env_name, self.ep_idx + 1, [])
 
 
 def _diverse_args(p):

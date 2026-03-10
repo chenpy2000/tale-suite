@@ -214,6 +214,8 @@ def evaluate(agent, env_name, args):
                 log.debug(obs)
 
             if done:
+                # Let agent record final step and save (e.g. trajectory collectors)
+                action, stats = agent.act(obs, score, done, info)
                 if info["won"]:
                     nb_wins += 1
                     if highscore == max_score:
@@ -231,6 +233,10 @@ def evaluate(agent, env_name, args):
                 nb_resets += 1
 
                 log.debug(f"{obs}")
+
+        # Episodes truncated by step limit never get done=True; notify agent
+        if not done and hasattr(agent, "episode_truncated"):
+            agent.episode_truncated(obs, info)
 
         status = "finished"
 
@@ -536,8 +542,8 @@ def main():
     agent = Agent(**vars(args))
     agent.new = partial(Agent, **vars(args))
 
-    if args.subcommand == "llm-vqvae" and not args.admissible_commands:
-        log.warning("llm-vqvae needs admissible commands; enabling --admissible-commands")
+    if args.subcommand in ("llm-vqvae", "llm-triton") and not args.admissible_commands:
+        log.warning(f"{args.subcommand} needs admissible commands; enabling --admissible-commands")
         args.admissible_commands = True
 
     # Create logging directory.
