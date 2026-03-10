@@ -4,7 +4,7 @@ import ast
 import json
 import re
 import requests
-from unittest.mock import patch  # (still unused, safe to delete)
+from unittest.mock import patch
 
 import networkx as nx
 
@@ -13,29 +13,27 @@ from tales.agent import register
 
 
 class GraphAgent(LLMAgent):
-    # --- Relations that should be mutually exclusive per SUBJECT ---
-    # If we add (X, HELD_BY, Player), we should delete prior (X, INSIDE, ...), (X, ON_TOP_OF, ...), etc.
     EXCLUSIVE_OUTGOING = {
         "LOCATION": {"INSIDE", "ON_TOP_OF", "HELD_BY", "IN_ROOM"},
-        # You can extend later if you start extracting these:
-        # "DOOR_STATE": {"OPEN", "CLOSED", "LOCKED", "UNLOCKED"},
-        # "CUT_STATE": {"WHOLE", "SLICED", "DICED", "CHOPPED"},
-        # "COOK_STATE": {"RAW", "COOKED", "BURNED"},
+        "CONN_NORTH": {"CONNECTED_TO_NORTH"},
+        "CONN_SOUTH": {"CONNECTED_TO_SOUTH"},
+        "CONN_EAST": {"CONNECTED_TO_EAST"},
+        "CONN_WEST": {"CONNECTED_TO_WEST"},
     }
     REL_TO_GROUP = {rel: grp for grp, rels in EXCLUSIVE_OUTGOING.items() for rel in rels}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # MultiDiGraph lets us store multiple relations between the same nodes.
-        # We'll store relation as the EDGE KEY (key=relation).
         self.graph = nx.MultiDiGraph()
-
         self.current_room = "Unknown"
         self.turn_id = 0
         self.last_action = "None"
+        
+        # --- NEW: Episodic Memory for Reflexion ---
+        # This list deliberately persists across episodes/resets so the agent learns over time.
+        self.lessons_learned = []
 
-        # We will use raw HTTP requests for graph extraction to bypass llm key conflicts
         self.triton_url = "https://tritonai-api.ucsd.edu/v1/chat/completions"
         self.triton_key = os.environ.get("TRITON_API_KEY", "")
 
@@ -55,6 +53,62 @@ class GraphAgent(LLMAgent):
         self.current_room = "Unknown"
         self.turn_id = 0
         self.last_action = "None"
+        
+        # Reset the reflection trigger so it can learn again if it dies in the new episode
+        self.reflected_this_episode = False  
+        
+        # WE NOW WIPE THE MEMORY BETWEEN EPISODES SO IT STARTS WITH A BLANK SLATE
+        self.lessons_learned = []
+
+    # -------------------------
+    # Reflexion / Learning from Mistakes
+    # -------------------------
+    def _reflect_on_failure(self, final_obs):
+        print("\n[Reflexion System] Game Over detected. Analyzing failure to extract a safety rule...")
+        
+        # Grab the last 3 turns from the agent's history for context
+        history_context = ""
+        recent = self.history[-3:] if hasattr(self, 'history') else []
+        for past_obs, past_act in recent:
+            history_context += f"Observation: {past_obs.strip()}\nAction Taken: {past_act.strip()}\n\n"
+            
+        history_context += f"Final Game Over Observation: {final_obs.strip()}\n"
+
+        prompt = f"""
+        You are an AI playing a text adventure game. You just triggered a GAME OVER or failure.
+        Read the following transcript of your final moves:
+        
+        [Transcript]
+        {history_context}
+        
+        Analyze what specific action caused the failure based on the physical state (adjectives) of the objects involved. 
+        Write a generalized 1-sentence behavioral rule to prevent this without using specific item names (e.g., use 'ingredients' or 'items' instead of 'cheese').
+        
+        Output EXACTLY one line in this format:
+        RULE: <your 1-sentence generalized rule>
+        """
+        
+        try:
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.triton_key}"
+            }
+            payload = {
+                "model": "api-gpt-oss-120b", 
+                "messages": [{"role": "system", "content": prompt}],
+                "temperature": 0.0,
+            }
+            response = requests.post(self.triton_url, headers=headers, json=payload, timeout=30)
+            if response.status_code == 200:
+                text = response.json()["choices"][0]["message"]["content"]
+                match = re.search(r"RULE:\s*(.+)", text, re.IGNORECASE)
+                if match:
+                    rule = match.group(1).strip()
+                    if rule not in self.lessons_learned:
+                        self.lessons_learned.append(rule)
+                        print(f"\n>>> [LEARNED NEW SURVIVAL RULE]: {rule} <<<\n")
+        except Exception as e:
+            print(f"[Reflexion Error]: {e}")
 
     # -------------------------
     # Canonicalization helpers
@@ -62,226 +116,262 @@ class GraphAgent(LLMAgent):
     _ARTICLE_RE = re.compile(r"^(a|an|the)\s+", re.IGNORECASE)
 
     def _canon_entity(self, s: str) -> str:
-        """Normalize entity strings to reduce trivial duplicates."""
-        if not isinstance(s, str):
-            return ""
-        s = s.strip()
-        if not s:
-            return ""
-
-        # remove leading articles
-        s = self._ARTICLE_RE.sub("", s).strip()
-
-        # normalize whitespace
+        if not isinstance(s, str): return ""
+        s = self._ARTICLE_RE.sub("", s.strip()).strip()
         s = re.sub(r"\s+", " ", s)
-
-        # normalize Player
-        if s.lower() in {"player", "you", "yourself", "me"}:
-            return "Player"
-
-        # mild title-casing; keeps 'UCSD' etc mostly fine
-        # (If you hate this, delete and just return s.)
-        return s[0].upper() + s[1:]
+        if s.lower() in {"player", "you", "yourself", "me"}: return "Player"
+        return s[0].upper() + s[1:] if s else ""
 
     def _canon_relation(self, r: str) -> str:
-        if not isinstance(r, str):
-            return ""
-        return r.strip().upper()
+        return r.strip().upper() if isinstance(r, str) else ""
 
     def _extract_triplets(self, text, action):
-        """
-        Uses the base LLM to parse the observation text into (Subject, Relation, Object) triplets.
-        """
+        known_state = self._get_graph_context()
         prompt = f"""
         You are a structured Information Extraction engine for a text adventure game.
         Your task is to parse the following game observation and the last action taken, and extract the exact physical relationships of objects and locations into a list of Python tuples (Subject, Relation, Object).
+        
+        [Current Known State]
+        {known_state}
         
         Last Action: {action}
         Observation: {text}
         
         Rules:
-        1. Subjects and Objects should be properly capitalized nouns (e.g., "Apple", "Kitchen", "Red Door").
+        1. Subjects and Objects should be properly capitalized nouns. Include descriptive adjectives when present.
         2. Relations should be uppercase keywords. Use these primarily: INSIDE, ON_TOP_OF, CONNECTED_TO, NORTH_OF, SOUTH_OF, EAST_OF, WEST_OF, HELD_BY, PART_OF.
-        3. Only output a strict valid Python list of tuples. Do not output ANY other text or explanations.
-        4. CRITICAL: Do NOT extract physical relationships from written text, recipes, or descriptions. If a Cookbook says "Ingredients: block of cheese", the cheese is NOT physically `INSIDE` the cookbook! It is just text. Ignore recipes when extracting physical state.
-        
-        Example Output:
-        [("Apple", "INSIDE", "Refrigerator"), ("Kitchen", "WEST_OF", "Living Room"), ("Knife", "HELD_BY", "Player")]
+        3. Only output a strict valid Python list of tuples. Do not output ANY other text.
+        4. CRITICAL: Do NOT extract physical relationships from written text or descriptions.
+        5. CRITICAL: For navigation and exits, capture the direction specifically using the current room as the subject and "Unexplored Room" as the object if the destination is unknown.
+        6. MATCH KNOWN ENTITIES: If the observation mentions a generic item but a specific version exists in the [Current Known State], you MUST use the specific name!
         """
         messages = [{"role": "system", "content": prompt}, {"role": "user", "content": "Extract triplets now."}]
 
         try:
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.triton_key}"
-            }
-            payload = {
-                "model": "api-gpt-oss-120b",
-                "messages": messages,
-                "temperature": 0.0,
-            }
+            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self.triton_key}"}
+            payload = {"model": "api-gpt-oss-120b", "messages": messages, "temperature": 0.0}
             response = requests.post(self.triton_url, headers=headers, json=payload, timeout=30)
             response.raise_for_status()
-            response_data = response.json()
-            response_text = response_data["choices"][0]["message"]["content"]
+            response_text = response.json()["choices"][0]["message"]["content"]
 
             clean_text = re.sub(r"```python|```", "", response_text).strip()
             triplets = ast.literal_eval(clean_text)
+
+            match = re.search(r"-=\s*(.*?)\s*=-", text)
+            new_room = match.group(1).strip() if match else None
+
+            if new_room:
+                if action and action.startswith("go ") and getattr(self, "current_room", "Unknown") not in ("Unknown", new_room):
+                    direction = action.split(" ")[1].lower()
+                    opposite = {"north": "south", "south": "north", "east": "west", "west": "east"}
+                    
+                    if direction in opposite:
+                        u_norm, v_norm = self._canon_entity(self.current_room), self._canon_entity(new_room)
+                        dir_rel, opp_rel = f"CONNECTED_TO_{direction.upper()}", f"CONNECTED_TO_{opposite[direction].upper()}"
+                        
+                        self.graph.add_edge(u_norm, v_norm, key=dir_rel, last_seen=self.turn_id)
+                        self.graph.add_edge(v_norm, u_norm, key=opp_rel, last_seen=self.turn_id)
+                        
+                        unexp = self._canon_entity("Unexplored Room")
+                        edges_to_remove = [(u, v, k) for u, v, k, d in self.graph.edges(keys=True, data=True)
+                                           if (u == u_norm and v == unexp and k == dir_rel) or 
+                                              (u == v_norm and v == unexp and k == opp_rel)]
+                        for e in edges_to_remove:
+                            self.graph.remove_edge(*e)
+
+                self.current_room = new_room
 
             if isinstance(triplets, list) and all(isinstance(t, tuple) and len(t) == 3 for t in triplets):
                 return triplets
             return []
         except Exception as e:
-            print(f"[Graph Extraction Error]: {e}")
             return []
 
-    # -------------------------
-    # Fix #1: Stateful deletion
-    # -------------------------
     def _remove_conflicting_edges(self, subject: str, relation: str):
-        """
-        Enforce mutual exclusivity groups (e.g., LOCATION).
-        Removes all outgoing edges from `subject` whose relation-key is in the same group.
-        """
         group = self.REL_TO_GROUP.get(relation)
-        if not group:
-            return
-
+        if not group: return
         rels = self.EXCLUSIVE_OUTGOING[group]
-        # MultiDiGraph: out_edges(..., keys=True) yields (u, v, k)
         for u, v, k in list(self.graph.out_edges(subject, keys=True)):
             if k in rels:
                 self.graph.remove_edge(u, v, key=k)
 
     def _update_graph(self, triplets):
-        """Updates the NetworkX graph with the extracted triplets (with stateful deletion)."""
         for subject, relation, obj in triplets:
-            s = self._canon_entity(subject)
-            r = self._canon_relation(relation)
-            o = self._canon_entity(obj)
+            s, r, o = self._canon_entity(subject), self._canon_relation(relation), self._canon_entity(obj)
+            if not s or not r or not o: continue
 
-            if not s or not r or not o:
-                continue
+            if o == self._canon_entity("Unexplored Room") and self.REL_TO_GROUP.get(r):
+                group = self.REL_TO_GROUP[r]
+                rels = self.EXCLUSIVE_OUTGOING[group]
+                if any(k in rels and v != self._canon_entity("Unexplored Room") for u, v, k in list(self.graph.out_edges(s, keys=True))):
+                    continue
 
-            # 1) delete conflicting facts (e.g. old location) BEFORE adding new one
             self._remove_conflicting_edges(s, r)
-
-            # 2) add the new fact; relation stored as edge KEY
             self.graph.add_edge(s, o, key=r, last_seen=self.turn_id)
 
-            # OPTIONAL: keep current room updated if you ever extract it
-            # If you extend extraction to emit ("Player","INSIDE","Kitchen"), this will track it.
             if s == "Player" and r in {"INSIDE", "IN_ROOM"}:
                 self.current_room = o
 
     def _get_graph_context(self):
-        """Stringifies the current graph state for the LLM context."""
-        if len(self.graph.nodes) == 0:
-            return "No mapped surroundings yet."
-
+        if len(self.graph.nodes) == 0: return "No mapped surroundings yet."
         context = "Current Graph State (Known Map & Objects):\n"
-        # MultiDiGraph: edges(keys=True, data=True) yields u, v, k, data
         for u, v, k, data in self.graph.edges(keys=True, data=True):
-            # k is the relation
             context += f"- {u} is {k} {v}\n"
 
-        # OPTIONAL: include current room if known
         if self.current_room != "Unknown":
             context += f"\n[Player Location]\n- Player is in {self.current_room}\n"
-
+            context += "\n[Navigation Assistant] (Shortest paths from your location):\n"
+            try:
+                curr_node = self._canon_entity(self.current_room)
+                if curr_node in self.graph:
+                    rooms = {u for u, v, k in self.graph.edges(keys=True) if k.startswith("CONNECTED_TO_")} | \
+                            {v for u, v, k in self.graph.edges(keys=True) if k.startswith("CONNECTED_TO_")}
+                    for target in rooms:
+                        if target != curr_node and target != self._canon_entity("Unexplored Room") and nx.has_path(self.graph, curr_node, target):
+                            path = nx.shortest_path(self.graph, curr_node, target)
+                            dirs = [f"go {k.replace('CONNECTED_TO_', '').lower()}" for i in range(len(path)-1) 
+                                    for u, v, k, data in self.graph.edges(data=True, keys=True) 
+                                    if u == path[i] and v == path[i+1] and k.startswith("CONNECTED_TO_")]
+                            if dirs: context += f"- To reach {target}: {', '.join(dirs)}\n"
+            except: pass
         return context
 
     def build_messages(self, observation):
         messages = super().build_messages(observation)
+        
+        action_recommender_prompt = (
+           "You are an action recommender for a text-based game agent.\n"
+           "At each step your job is to do TWO things:\n"
+           " 1. judge the outcome of the previous action, if there was a previous action\n"
+           " 2. recommend exactly ONE next action\n\n"
+           "Outcome labels for the previous action:\n"
+           " - useful_scoring: the previous action directly increased score or clearly completed a scoring milestone\n"
+           " - useful_non_scoring: the previous action helped progress without increasing score\n"
+           " - useless: the previous action produced no useful progress\n"
+           " - failed: the previous action directly caused failure, loss, death, or restart\n\n"
+           "Decision rules for the next action:\n"
+           " - Use the long-term goal as the overall objective.\n"
+           " - Use the map summary to navigate systematically.\n"
+           " - Avoid repeating failed or useless actions.\n"
+           " - Prefer actions that help reach goal-relevant locations and objects.\n\n"
+           "CRITICAL RULES:\n"
+           "- Use the WORLD STATE to know where things are. Do NOT take something you are already holding. Do NOT put something where it already is.\n"
+           "- NEVER undo a previous action. If you just put X somewhere, do NOT pick it up again unless you need it for a SPECIFIC next step.\n"
+           # --- NEW: State-Awareness Logic ---
+           "- STATE-AWARENESS: Pay close attention to the adjectives of objects (e.g., 'fried block of cheese'). Adjectives indicate an object's current state. NEVER apply a state-changing action (cook, fry, roast, slice, chop) to an item that already possesses that target state, or you will destroy it.\n\n"
+        )
+
+        # --- NEW: Inject Past Lessons Learned ---
+        if self.lessons_learned:
+            action_recommender_prompt += "[LESSONS LEARNED FROM PAST FAILURES - DO NOT REPEAT]\n"
+            for lesson in set(self.lessons_learned):
+                action_recommender_prompt += f"- {lesson}\n"
+            action_recommender_prompt += "\n"
+
+        action_recommender_prompt += (
+           "OUTPUT FORMAT:\n"
+           "You must evaluate the state of objects BEFORE acting using Chain-of-Thought.\n"
+           "Output exactly in this format:\n"
+           "THOUGHT: <Briefly reason about the item adjectives and your goals. Is the target state already achieved?>\n"
+           "COMMAND: <the exact in-game command>\n"
+        )
+
+        messages[0]["content"] = action_recommender_prompt
         graph_state = self._get_graph_context()
         
         adm = getattr(self, "_current_admissible", [])
         if adm:
             adm_str = "\n".join([f"  {a}" for a in adm])
-            valid_commands_help = f"[Current Admissible Commands]\n{adm_str}\n\n[CRITICAL INSTRUCTION]\nYou MUST ONLY reply with a single exact command from the [Current Admissible Commands] list above.\nDo NOT use synonyms. Do NOT invent new verbs."
+            valid_commands_help = f"[Current Admissible Commands]\n{adm_str}\n\nAnalyze the graph and your goal. Which Valid Command gets you closer to the objective? Output ONLY using the THOUGHT: and COMMAND: format."
         else:
-            # Inject the valid commands list to prevent hallucinating actions
-            valid_commands_help = """
-[Available Commands Reference]
-  look:                describe the current room
-  goal:                print the goal of this game
-  inventory:           print player's inventory
-  go <dir>:            move the player north, east, south or west
-  examine ...:         examine something more closely
-  eat ...:             eat edible food
-  open ...:            open a door or a container
-  close ...:           close a door or a container
-  drop ...:            drop an object on the floor
-  take ...:            take an object that is on the floor
-  put ... on ...:      place an object on a supporter
-  take ... from ...:   take an object from a container or a supporter
-  insert ... into ...: place an object into a container
-  lock ... with ...:   lock a door or a container with a key
-  unlock ... with ...: unlock a door or a container with a key
-  cook ... with ...:   cook cookable food with something providing heat
-  slice ... with ...:  slice cuttable food with something sharp
-  chop ... with ...:   chop cuttable food with something sharp
-  dice ... with ...:   dice cuttable food with something sharp
-  prepare meal:        combine ingredients from inventory into a meal
+            valid_commands_help = "\n[CRITICAL INSTRUCTION]\nYou MUST ONLY reply using the THOUGHT: and COMMAND: format."
 
-[CRITICAL INSTRUCTION]
-You MUST ONLY reply with a single command chosen EXACTLY from the formats in the [Available Commands Reference] above.
-Do NOT use synonyms. Do NOT invent new verbs like "use", "make", or "pick up".
-If you want to cook a carrot, you MUST output: `cook carrot with oven` or `cook carrot with stove`. NOT `use oven to roast carrot`.
-"""
-        
-        # Override the generic LLMAgent system prompt to be strictly compliant
-        messages[0]["content"] = (
-            "You are an expert player of a text-based cooking adventure game. Your goal is to finish the recipe with the highest score.\n"
-            "You must meticulously read the [Knowledge Graph Tracker] to understand your environment.\n"
-            "You must strictly output ONLY ONE valid command per turn."
-        )
-
-        messages[-1]["content"] += f"\n\n{valid_commands_help}\n[Knowledge Graph Tracker]\n{graph_state}"
+        messages[-1]["content"] += f"\n\n{valid_commands_help}\n[WORLD STATE]\n{graph_state}"
         return messages
 
     def act(self, obs, reward, done, infos):
-        # advance a logical clock so edges can store last_seen
         self.turn_id += 1
+
+        # --- NEW: Trigger Reflexion upon Death ---
+        if ("*** You lost! ***" in obs or reward < 0) and not getattr(self, 'reflected_this_episode', False):
+            self._reflect_on_failure(obs)
+            self.reflected_this_episode = True
 
         adm = infos.get("admissible_commands") if isinstance(infos, dict) else None
         self._current_admissible = [str(a) for a in adm] if adm else []
-
         last_action = getattr(self, "last_action", "None")
-        triplets = self._extract_triplets(obs, last_action)
 
+        triplets = self._extract_triplets(obs, last_action)
         self._update_graph(triplets)
 
-        action, stats = super().act(obs, reward, done, infos)
-
-        # Fallback to admissible actions if invalid
         if self._current_admissible:
-            # Force add implicitly valid commands missing from TextWorld's admissible list
             for implicit_cmd in ["inventory", "look"]:
                 if implicit_cmd not in self._current_admissible:
                     self._current_admissible.append(implicit_cmd)
                     
-            # TextWorld omits 'examine <item>' for items inside the inventory!
-            # Reinject them based on our Knowledge Graph so the LLM isn't blinded.
             if hasattr(self, 'graph'):
                 for u, v, k, data in self.graph.edges(data=True, keys=True):
-                    if data.get('rel') == 'HELD_BY':
+                    if k == 'HELD_BY':
                         item = u if v.lower() == 'player' else v
                         exam_cmd = f"examine {item.lower()}"
                         if exam_cmd not in self._current_admissible:
                             self._current_admissible.append(exam_cmd)
 
+        if self._current_admissible and hasattr(self, 'graph') and self.current_room != "Unknown":
+            unexplored_dirs = []
+            unexp_node, curr_node = self._canon_entity("Unexplored Room"), self._canon_entity(self.current_room)
+            for u, v, k, data in self.graph.edges(data=True, keys=True):
+                if u == curr_node and v == unexp_node and k.startswith("CONNECTED_TO_"):
+                    unexplored_dirs.append(f"go {k.replace('CONNECTED_TO_', '').lower()}")
+            if not unexplored_dirs and unexp_node in self.graph and curr_node in self.graph:
+                try:
+                    if nx.has_path(self.graph, curr_node, unexp_node):
+                        path = nx.shortest_path(self.graph, curr_node, unexp_node)
+                        if len(path) > 1:
+                            for u, v, k, data in self.graph.edges(data=True, keys=True):
+                                if u == curr_node and v == path[1] and k.startswith("CONNECTED_TO_"):
+                                    unexplored_dirs.append(f"go {k.replace('CONNECTED_TO_', '').lower()}")
+                except: pass
+            if unexplored_dirs:
+                pruned = [cmd for cmd in self._current_admissible if not cmd.startswith("go ") or cmd in unexplored_dirs]
+                if pruned: self._current_admissible = pruned
+
+        # --- Base LLM inference (Now returning THOUGHT and COMMAND) ---
+        raw_output, stats = super().act(obs, reward, done, infos)
+
+        # --- Parse out the actual command from the LLM's thought process ---
+        cmd_match = re.search(r"COMMAND:\s*(.+)", raw_output, re.IGNORECASE)
+        if cmd_match:
+            action = cmd_match.group(1).strip()
+        else:
+            # Fallback in case LLM ignored formatting tags
+            lines = [l.strip() for l in raw_output.split('\n') if l.strip()]
+            action = lines[-1].replace("COMMAND:", "").replace("Action:", "").strip() if lines else raw_output.strip()
+        
+        # Remove stray quotes
+        action = re.sub(r"['\"]", "", action).strip()
+
+        # Fallback to admissible actions if invalid
+        if self._current_admissible:
             matched = False
             for cmd in self._current_admissible:
-                if action.lower() in cmd.lower() or cmd.lower() in action.lower():
-                    action = cmd
-                    matched = True
+                if action.lower() == cmd.lower():
+                    action, matched = cmd, True
                     break
-            
+            if not matched:
+                for cmd in self._current_admissible:
+                    if action.lower() in cmd.lower() or cmd.lower() in action.lower():
+                        action, matched = cmd, True
+                        break
             if not matched:
                 action = str(self.rng.choice(self._current_admissible))
             
-            # Overwrite the action in the history so we don't pollute context
+            # --- CRITICAL: Context Window Cleanup ---
+            # Rewrite history so we don't pollute the LLM's context token limit with "THOUGHT: ..."
+            if self.history:
+                last_obs, _ = self.history[-1]
+                self.history[-1] = (last_obs, f"{action}\n")
+        else:
             if self.history:
                 last_obs, _ = self.history[-1]
                 self.history[-1] = (last_obs, f"{action}\n")
@@ -292,13 +382,11 @@ If you want to cook a carrot, you MUST output: `cook carrot with oven` or `cook 
 
 def build_argparser(parser=None):
     from agents.llm import build_argparser as llm_build_argparser
-    parser = llm_build_argparser(parser)
-    return parser
-
+    return llm_build_argparser(parser)
 
 register(
     name="graph",
-    desc="Knowledge Graph state-tracking agent using NetworkX.",
+    desc="Knowledge Graph state-tracking agent using NetworkX with Reflexion CoT.",
     klass=GraphAgent,
     add_arguments=build_argparser,
 )
