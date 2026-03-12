@@ -45,11 +45,11 @@ def compute_doom_loop_count(rollouts_df: pd.DataFrame, threshold: int = 3) -> in
             current_action_feedback = action_feedback_pair
             current_streak = 1
 
-        stall = previous_score is not None and score is not None and score <= previous_score
+        previous_feedback = feedback
+        previous_score = row.get("Score", 0)
+        
         actions.append(action)
-        stalls.append(stall)
-        previous_feedback = normalized_feedback
-        previous_score = score
+        stalls.append("You can't" in feedback or "I don't" in feedback or "That's not" in feedback or "re already" in feedback)
 
     # Check if the episode ended on a doom loop
     if current_streak > threshold:

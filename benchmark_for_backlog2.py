@@ -1,7 +1,8 @@
+
 import argparse
 import datetime
 import glob
-import importlib
+import importlib.util
 import json
 import logging
 import os
@@ -24,35 +25,119 @@ from tales.utils import NumpyEncoder
 os.environ["WANDB_MODE"] = "disabled"
 
 
-def evaluate(agent, env_name, args):
-    env_params = (
-        f"a{int(args.admissible_commands)}_s{args.game_seed}_steps{args.nb_steps}"
+def _append_goal_summary_once(agent, snapshot_log_path: str = None):
+    if not snapshot_log_path:
+        return
+    long_term_goal = getattr(agent, "long_term_goal", None) or "(none)"
+    msg = (
+        "\n=== Long-Term Goal Summary ===\n"
+        f"{long_term_goal}\n"
+        "==============================\n"
     )
+    with open(snapshot_log_path, "a", encoding="utf-8") as f:
+        f.write(msg)
+
+
+def _print_agent_snapshot(step: int, agent, snapshot_log_path: str = None):
+    if not snapshot_log_path:
+        return
+
+    current_location = getattr(agent, "current_location", None)
+    map_summary = getattr(agent, "_build_map_summary", lambda: "(unavailable)")()
+    useful_scoring = getattr(agent, "useful_scoring_actions", [])
+    useful_non_scoring = getattr(agent, "useful_non_scoring_actions", [])
+    useless = getattr(agent, "useless_actions", [])
+    failed = getattr(agent, "failed_actions", [])
+    completed_this_episode = sorted(getattr(agent, "completed_current_episode_actions", set()))
+
+    def _fmt(records):
+        if not records:
+            return "  - (none)\n"
+
+        # records is now a dict keyed by (action, location)
+        if isinstance(records, dict):
+            items = list(records.values())
+        else:
+            items = list(records)
+
+        items = sorted(
+            items,
+            key=lambda x: (
+                -int(x.get("last_episode", -1)) if isinstance(x, dict) else -1,
+                (x.get("location", "") if isinstance(x, dict) else "") or "",
+                (x.get("action", "") if isinstance(x, dict) else ""),
+            ),
+        )[:10]
+
+        lines = []
+        for rec in items:
+            if isinstance(rec, dict):
+                location = rec.get("location") or "(unknown)"
+                action = rec.get("action", "")
+                episode = rec.get("last_episode", "?")
+            else:
+                location = getattr(rec, "location", None) or "(unknown)"
+                action = getattr(rec, "action", "")
+                episode = getattr(rec, "episode", "?")
+
+            lines.append(f"  - {action} (last episode {episode}, {location})")
+
+        return "\n".join(lines) + "\n"
+
+    msg = (
+        f"\n--- Agent Snapshot @ step {step} ---\n"
+        + (f"Current location:\n  - {current_location}\n" if current_location else "Current location:\n  - (unknown)\n")
+        + "Completed useful actions this episode:\n"
+        + ("\n".join(f"  - {a}" for a in completed_this_episode) + "\n" if completed_this_episode else "  - (none)\n")
+        + "Useful scoring actions:\n" + _fmt(useful_scoring)
+        + "Useful non-scoring actions:\n" + _fmt(useful_non_scoring)
+        + "Useless actions:\n" + _fmt(useless)
+        + "Failed actions:\n" + _fmt(failed)
+        + f"Map summary:\n{map_summary}\n"
+        + "--------------------------------------\n"
+    )
+    with open(snapshot_log_path, "a", encoding="utf-8") as f:
+        f.write(msg)
+
+
+def _append_recommender_snapshot(step: int, stats: dict, snapshot_log_path: str = None):
+    if not snapshot_log_path:
+        return
+    output = (stats or {}).get("recommend_response")
+    output = str(output).strip() if output else "(empty)"
+    msg = (
+        f"\n=== Recommender Output Snapshot @ step {step} ===\n"
+        f"{output}\n"
+        f"===============================================\n"
+    )
+    with open(snapshot_log_path, "a", encoding="utf-8") as f:
+        f.write(msg)
+
+
+def evaluate(agent, env_name, args):
+    env_params = f"a{int(args.admissible_commands)}_s{args.game_seed}_steps{args.nb_steps}"
     logdir = pjoin(args.log_dir, f"{env_name}")
     os.makedirs(logdir, exist_ok=True)
     summary_file = pjoin(logdir, f"{env_params}.json")
     rollouts_file = pjoin(logdir, f"{env_params}.jsonl")
     log_file = pjoin(logdir, f"{env_params}.log")
+    snapshot_log_file = pjoin(logdir, "recommender_snapshots.log")
+    open(snapshot_log_file, "w", encoding="utf-8").close()
 
-    # Create new file handler for this env evaluation.
     fh = log.add_new_file_handler(log_file)
 
-    # Check if the game has already been evaluated.
     if not args.force_all and os.path.exists(summary_file):
         log.info(f"Previous evaluation found: {summary_file}")
         with open(summary_file) as reader:
             summary = json.load(reader)
-
         log.info(f"Previous evaluation status: {summary['status']}")
         if not args.force_failed or summary["status"] == "finished":
             log.info(colored("Skipped, already done.", "yellow"))
             log.removeHandler(fh)
-            fh.close()
             return summary
 
     run_name = f"{env_name} - {agent.uid}"
     if args.wandb and not args.force_all:
-        # Check if there already exists a run with the same name using Wandb API.
         wandb_api = wandb.Api()
         wandb_runs = wandb_api.runs(filters={"display_name": run_name})
         if wandb_runs:
@@ -61,7 +146,6 @@ def evaluate(agent, env_name, args):
             if wandb_run.state in ("finished", "running"):
                 log.info(colored("Skipped, already exists.", "yellow"))
                 log.removeHandler(fh)
-                fh.close()
                 summary = {
                     "status": wandb_run.state,
                     "env_name": env_name,
@@ -78,10 +162,11 @@ def evaluate(agent, env_name, args):
                     "max_score": wandb_run.summary["final/Game Max Score"],
                     "norm_score": wandb_run.summary["final/Normalized Score"],
                     "duration": wandb_run.summary["final/Duration"],
+                    "token_efficiency": wandb_run.summary.get("final/Token Efficiency"),
+                    "doom_loop_count": wandb_run.summary.get("final/Doom Loop Count"),
                 }
                 return summary
 
-    # initialize wandb
     wandb_config = {
         "version": tales.__version__,
         "game": env_name,
@@ -92,12 +177,7 @@ def evaluate(agent, env_name, args):
         "admissible_commands": args.admissible_commands,
         **agent.params,
     }
-    wandb_run = wandb.init(
-        project="tales",
-        config=wandb_config,
-        reinit=True,
-        name=run_name,
-    )
+    wandb_run = wandb.init(project="tales", config=wandb_config, reinit=True, name=run_name)
 
     env = gym.make(
         f"tales/{env_name}-v0",
@@ -113,7 +193,6 @@ def evaluate(agent, env_name, args):
 
     agent = agent.new()
     agent.reset(obs, info, env_name)
-
     log.debug(f"Environment reset.\n{obs}\n")
 
     status = "running"
@@ -122,7 +201,6 @@ def evaluate(agent, env_name, args):
     nb_resets = 0
     nb_wins = 0
     nb_losts = 0
-    nb_resets = 0
     nb_invalid_actions = 0
     moves = 0
     highscore = 0
@@ -138,35 +216,28 @@ def evaluate(agent, env_name, args):
             "episode/normalized_score": score / max_score,
             "episode/normalized_highscore": highscore / max_score,
             "episode/token_usage": 0,
+            "episode/token_usage_recommend": 0,
         },
         step=0,
     )
-    try:
 
-        pbar = tqdm(
-            range(1, args.nb_steps + 1), desc=f"  {env_name}", unit="steps", leave=False
-        )
+    try:
+        pbar = tqdm(range(1, args.nb_steps + 1), desc=f"  {env_name}", unit="steps", leave=False)
         for step in pbar:
-            pbar.set_postfix_str(
-                f"Score: {info['score']}/{info['max_score']} ({info['score']/info['max_score']:.1%})"
-            )
+            pbar.set_postfix_str(f"Score: {info['score']}/{info['max_score']} ({info['score']/info['max_score']:.1%})")
             action, stats = agent.act(obs, score, done, info)
-            stats = stats or {}
-            prompt_tokens = stats.get("nb_tokens_prompt", 0)
-            response_tokens = stats.get("nb_tokens_response", 0)
-            thinking_tokens = stats.get("nb_tokens_thinking", 0)
-            total_tokens = stats.get(
-                "nb_tokens", prompt_tokens + response_tokens + thinking_tokens
-            )
             log.debug(colored(f"> {action}", "green"))
+
+            if step == 1:
+                _append_goal_summary_once(agent, snapshot_log_file)
+            if step == 1 or step % 5 == 0:
+                _print_agent_snapshot(step, agent, snapshot_log_file)
+                _append_recommender_snapshot(step, stats, snapshot_log_file)
 
             if args.debug:
                 breakpoint()
 
             prev_obs = obs
-            admissible_before_action = list(info.get("admissible_commands") or [])
-
-            # Force one action per step.
             if "\n" in action.strip():
                 obs = "The game only allows one action per step."
             else:
@@ -179,15 +250,12 @@ def evaluate(agent, env_name, args):
             highscore = max(score, highscore)
             norm_highscore = highscore / max_score
 
-            if (
-                args.admissible_commands
-                and admissible_before_action
-                and action not in admissible_before_action
-            ):
+            if args.admissible_commands and info.get("admissible_commands") and action not in info["admissible_commands"]:
                 nb_invalid_actions += 1
 
-            msg = "{:5d}. Time: {:9.2f}\tScore: {:3d}\tMove: {:5d}\tAction: {:20s}"
-            msg = msg.format(step, time.time() - start_time, score, moves, action)
+            msg = "{:5d}. Time: {:9.2f}\tScore: {:3d}\tMove: {:5d}\tAction: {:20s}".format(
+                step, time.time() - start_time, score, moves, action
+            )
             log.info(msg)
 
             wandb_run.log(
@@ -197,48 +265,61 @@ def evaluate(agent, env_name, args):
                     "episode/highscore": highscore,
                     "episode/normalized_score": norm_score,
                     "episode/normalized_highscore": norm_highscore,
-                    "episode/token_usage": total_tokens,
-                    "episode/token_usage_thinking": thinking_tokens,
+                    "episode/token_usage": stats.get("nb_tokens", 0),
+                    "episode/token_usage_recommend": stats.get("nb_tokens_recommend", 0),
                 },
                 step=step,
             )
 
-            # fmt: off
             results.append([
-                step, score, max_score, norm_score, moves,
-                prev_obs, action, feedback,
-                stats.get("prompt"), stats.get("response"), stats.get("thinking"),
-                total_tokens, prompt_tokens, response_tokens, thinking_tokens,
+                step,
+                score,
+                max_score,
+                norm_score,
+                moves,
+                prev_obs,
+                action,
+                feedback,
+                stats.get("current_location"),
+                stats.get("long_term_goal"),
+                json.dumps(stats.get("completed_current_episode_actions", []), ensure_ascii=False),
+                json.dumps(stats.get("useful_scoring_actions", []), ensure_ascii=False),
+                json.dumps(stats.get("useful_non_scoring_actions", []), ensure_ascii=False),
+                json.dumps(stats.get("useless_actions", []), ensure_ascii=False),
+                json.dumps(stats.get("failed_actions", []), ensure_ascii=False),
+                stats.get("recommend_prompt"),
+                stats.get("recommend_response"),
+                stats.get("previous_action"),
+                stats.get("previous_action_outcome"),
+                stats.get("recommend_evidence"),
+                stats.get("next_action"),
+                stats.get("nb_tokens_recommend_prompt", 0),
+                stats.get("nb_tokens_recommend_response", 0),
+                stats.get("nb_tokens_goal_prompt", 0),
+                stats.get("nb_tokens_goal_response", 0),
+                stats.get("map_summary"),
+                stats.get("known_rooms"),
+                stats.get("nb_tokens", 0),
             ])
-            # fmt: on
 
             if not done:
                 log.debug(obs)
 
             if done:
-                # Let agent record final step and save (e.g. trajectory collectors)
-                action, stats = agent.act(obs, score, done, info)
-                if info["won"]:
+                if info.get("won"):
                     nb_wins += 1
                     if highscore == max_score:
                         log.debug(obs)
-                        break  # No reason to play that game more.
-                elif info["lost"]:
+                        break
+                elif info.get("lost"):
                     nb_losts += 1
 
-                # Replay the game in the hope of achieving a better score.
                 last_obs = obs
                 obs, info = env.reset()
                 obs = last_obs + "\n\n-= Restarting =-\n" + obs
                 agent.reset(obs, info, env_name)
-                done = False
                 nb_resets += 1
-
-                log.debug(f"{obs}")
-
-        # Episodes truncated by step limit never get done=True; notify agent
-        if not done and hasattr(agent, "episode_truncated"):
-            agent.episode_truncated(obs, info)
+                log.debug(obs)
 
         status = "finished"
 
@@ -246,9 +327,7 @@ def evaluate(agent, env_name, args):
         status = "killed"
         log.critical(colored(f"{env_name} (killed)", "red"))
         log.error(str(e))
-        time.sleep(
-            1
-        )  # Give time for the user to issue another ctrl+c to cancel the script.
+        time.sleep(1)
         if args.debug:
             raise
 
@@ -274,21 +353,19 @@ def evaluate(agent, env_name, args):
         "duration": time.time() - start_time,
     }
 
-    # fmt: off
     columns = [
-        "Step", "Score", "Max Score", "Normalized Score", "Moves",
-        "Observation", "Action", "Feedback",
-        "Prompt", "Response", "Thinking",
-        "Token Usage", "Prompt Tokens", "Response Tokens", "Thinking Tokens",
+        "Step", "Score", "Max Score", "Normalized Score", "Moves", "Observation", "Action", "Feedback",
+        "Current Location", "Long-term Goal", "Completed Useful Actions (Current Episode)",
+        "Useful Scoring Actions", "Useful Non-Scoring Actions", "Useless Actions", "Failed Actions",
+        "Recommend Prompt", "Recommend Response", "Previous Action", "Previous Action Outcome",
+        "Evidence", "Next Action", "Recommend Prompt Tokens", "Recommend Response Tokens",
+        "Goal Prompt Tokens", "Goal Response Tokens", "Map Summary", "Known Rooms", "Token Usage Total",
     ]
-    # fmt: on
-    df = pd.DataFrame(results, columns=columns)
 
-    # Compute operational efficiency and doom loop metrics
-    total_tokens = df["Token Usage"].sum()
+    df = pd.DataFrame(results, columns=columns)
+    total_tokens = int(df["Token Usage Total"].sum()) if len(df) else 0
     token_efficiency = compute_token_efficiency(total_tokens, highscore)
     doom_loop_count = compute_doom_loop_count(df)
-
     stats["token_efficiency"] = token_efficiency
     stats["doom_loop_count"] = doom_loop_count
 
@@ -301,10 +378,7 @@ def evaluate(agent, env_name, args):
         "total/Losts": stats["nb_losts"],
         "total/Wins": stats["nb_wins"],
         "total/Resets": stats["nb_resets"],
-        "total/Tokens": df["Token Usage"].sum(),
-        "total/Prompt Tokens": df["Prompt Tokens"].sum(),
-        "total/Response Tokens": df["Response Tokens"].sum(),
-        "total/Thinking Tokens": df["Thinking Tokens"].sum(),
+        "total/Tokens": total_tokens,
         "final/Highscore": stats["highscore"],
         "final/Game Max Score": stats["max_score"],
         "final/Normalized Score": stats["norm_score"],
@@ -312,12 +386,9 @@ def evaluate(agent, env_name, args):
         "final/Token Efficiency": stats["token_efficiency"],
         "final/Doom Loop Count": stats["doom_loop_count"],
     }
-    wandb_run.log(
-        {"episode/rollout": wandb.Table(dataframe=df), **wandb_stats},
-        step=stats["nb_steps"],
-    )
 
-    # Save summary.
+    wandb_run.log({"episode/rollout": wandb.Table(dataframe=df), **wandb_stats}, step=stats["nb_steps"])
+
     summary = {
         "status": status,
         "env_name": env_name,
@@ -334,16 +405,12 @@ def evaluate(agent, env_name, args):
     wandb.save(rollouts_file)
     wandb.save(log_file)
     wandb.save(summary_file)
-
     wandb_run.finish(exit_code=int(status != "finished"))
-
     log.removeHandler(fh)
-    fh.close()
     return summary
 
 
 def benchmark(agent, args):
-    # Log how many envs we are about to evaluate.
     log.critical("Evaluating {} interactive text environments:".format(len(args.envs)))
 
     mean_score = 0
@@ -357,14 +424,10 @@ def benchmark(agent, args):
         summary = evaluate(agent, env, args)
 
         nb_envs += 1
-
-        total_time += summary["duration"]  # In seconds
+        total_time += summary["duration"]
         total_steps += summary["nb_steps"]
         total_invalid += summary["nb_invalid_actions"]
-
-        token_eff = summary.get(
-            "token_efficiency", summary.get("final/Token Efficiency")
-        )
+        token_eff = summary.get("token_efficiency", summary.get("final/Token Efficiency"))
         doom_loop = summary.get("doom_loop_count", summary.get("final/Doom Loop Count"))
         token_eff_str = f"{float(token_eff):8.2f}" if token_eff is not None else "   n/a  "
         doom_loop_str = f"{int(doom_loop):4d}" if doom_loop is not None else " n/a"
@@ -378,15 +441,11 @@ def benchmark(agent, args):
             f"  TokenEff: {token_eff_str}"
             f"  DoomLoop: {doom_loop_str}"
         )
-
         log.critical(msg)
-
         mean_score += summary["norm_score"]
 
     if nb_envs > 0 and total_time > 0:
-        log.critical(
-            f"Mean score (over {nb_envs} games) = {mean_score / nb_envs:8.2%} of total possible"
-        )
+        log.critical(f"Mean score (over {nb_envs} games) = {mean_score / nb_envs:8.2%} of total possible")
         log.critical(f"Total time {total_time:9.2f} seconds")
         log.critical(f"Total {total_invalid} invalid actions")
         log.critical(f"Avg. speed: {total_steps / total_time:8.2f} steps per second")
@@ -402,15 +461,10 @@ def pretty_print_tasks(num_cols: int = 3, disable_print: bool = False):
     for task in sorted(tales.envs_per_task):
         task_output = f"{'=' * 5} {task} {'=' * 5}\n"
 
-        # Reference: https://stackoverflow.com/a/33464001
         for count, env_id in enumerate(sorted(tales.envs_per_task[task]), 1):
-            # Print column with justification.
             task_output += env_id.ljust(max_justify) + " "
-
-            # Once all rows printed, switch to new column.
             if count % num_cols == 0:
                 task_output = task_output.rstrip(" ")
-
                 if count != len(tales.envs_per_task[task]):
                     task_output += "\n"
 
@@ -437,7 +491,7 @@ def _maybe_load_agent_module():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
         "--agent",
-        default="agents/*.py",
+        default="./agents/*",
         help="Load external python file(s). Useful to register custom agent on-the-fly. Default: %(default)s",
     )
     args, _ = parser.parse_known_args()
@@ -453,54 +507,41 @@ def _maybe_load_agent_module():
                 f"{agent_dirname}.{agent_filename}", agent_file
             )
             module = importlib.util.module_from_spec(spec)
-            sys.modules[f"{agent_dirname}.{agent_filename}"] = module
-            try:
-                spec.loader.exec_module(module)
-            except ValueError as e:
-                # If the agent is already registered, that's fine.
-                if "already registered" in str(e):
-                    print(f"Agent from {agent_file} was already registered, skipping.")
-                else:
-                    raise
+            spec.loader.exec_module(module)
 
 
 def parse_args():
-    # fmt: off
-
-    description = "Benchmark some agent on interactive text environments."
+    description = "Benchmark some agent on interactive text environments (action recommender variant)."
     general_parser = argparse.ArgumentParser(add_help=False, description=description)
-    general_parser.add_argument("--agent", default="./agents/*",
-                                help="Load external python file(s). Useful to register custom agent on-the-fly. Default: %(default)s")
+    general_parser.add_argument(
+        "--agent",
+        default="./agents/*",
+        help="Load external python file(s). Useful to register custom agent on-the-fly. Default: %(default)s",
+    )
 
     parser = argparse.ArgumentParser(parents=[general_parser])
-    subparsers = parser.add_subparsers(dest="subcommand", title='Available agents to benchmark')
+    subparsers = parser.add_subparsers(dest="subcommand", title="Available agents to benchmark")
 
-    def _add_general_settings(parser):
+    def _add_general_settings(p):
+        p.formatter_class = argparse.RawTextHelpFormatter
+        general_group = p.add_argument_group("General settings")
 
-        parser.formatter_class = argparse.RawTextHelpFormatter
-        general_group = parser.add_argument_group('General settings')
-
-        general_group.add_argument("--envs", metavar="env", nargs="+", choices=tales.envs + tales.tasks,
-                            help="Interactive text environments to evaluate the agent(s)."
-                                f" Available:\n{pretty_print_tasks(disable_print=True)}")
-        general_group.add_argument("--game-seed", type=int,
-                            help="Seed for the game. Default: game-specific one.")
-        general_group.add_argument("--nb-steps", type=int, default=100,
-                            help="Maximum number of steps per game.")
-        general_group.add_argument("--admissible-commands", action="store_true",
-                            help="Enable admissible commands.")
-
-        general_group.add_argument("--log-dir", default="logs",
-                            help="Folder where to save verbose log information.")
-
-        general_group.add_argument("--wandb", action="store_true",
-                            help="Log to wandb")
-        general_group.add_argument("-ff", "--force-all", action="store_true",
-                            help="Force overwriting existing log files.")
-        general_group.add_argument("-f", "--force-failed", action="store_true",
-                            help="Force overwriting only log files that have failed.")
-        general_group.add_argument("--debug", action="store_true",
-                            help="Debug mode.")
+        general_group.add_argument(
+            "--envs",
+            metavar="env",
+            nargs="+",
+            choices=tales.envs + tales.tasks,
+            help="Interactive text environments to evaluate the agent(s)."
+                 f" Available:\n{pretty_print_tasks(disable_print=True)}",
+        )
+        general_group.add_argument("--game-seed", type=int, help="Seed for the game. Default: game-specific one.")
+        general_group.add_argument("--nb-steps", type=int, default=100, help="Maximum number of steps per game.")
+        general_group.add_argument("--admissible-commands", action="store_true", help="Enable admissible commands.")
+        general_group.add_argument("--log-dir", default="logs", help="Folder where to save verbose log information.")
+        general_group.add_argument("--wandb", action="store_true", help="Log to wandb")
+        general_group.add_argument("-ff", "--force-all", action="store_true", help="Force overwriting existing log files.")
+        general_group.add_argument("-f", "--force-failed", action="store_true", help="Force overwriting only log files that have failed.")
+        general_group.add_argument("--debug", action="store_true", help="Debug mode.")
 
         subgroup = general_group.add_mutually_exclusive_group()
         subgroup.add_argument(
@@ -521,15 +562,12 @@ def parse_args():
 
     _add_general_settings(parser)
 
-    agent_parsers = []
-    for challenge_name, (desc, _, add_agent_arguments) in tales.agent.AGENTS.items():
-        agent_parser = subparsers.add_parser(challenge_name, help=desc)
+    for agent_name, (desc, _, add_agent_arguments) in tales.agent.AGENTS.items():
+        agent_parser = subparsers.add_parser(agent_name, help=desc)
         add_agent_arguments(agent_parser)
         _add_general_settings(agent_parser)
-        agent_parsers.append(agent_parser)
 
     return parser.parse_args()
-    # fmt: on
 
 
 def main():
@@ -540,29 +578,21 @@ def main():
         print("Need to specify which type of agent to benchmark.")
         exit_listing_agents(args.subcommand)
 
-    # Instanciate the agent.
     _, Agent, _ = tales.agent.AGENTS[args.subcommand]
     agent = Agent(**vars(args))
     agent.new = partial(Agent, **vars(args))
 
-    if args.subcommand in ("llm-vqvae", "llm-triton") and not args.admissible_commands:
-        log.warning(f"{args.subcommand} needs admissible commands; enabling --admissible-commands")
-        args.admissible_commands = True
-
-    # Create logging directory.
-    args.log_dir = pjoin(args.log_dir, f"tales_{agent.uid.replace('/', '-')}")
+    args.log_dir = pjoin(args.log_dir, f"tales_{agent.uid.replace('/', '-')}_recommend")
     os.makedirs(args.log_dir, exist_ok=True)
     setup_logging(args)
-    log.critical(
-        colored(f"Logs will be saved in {os.path.abspath(args.log_dir)}", "magenta")
-    )
+    log.critical(colored(f"Logs will be saved in {os.path.abspath(args.log_dir)}", "magenta"))
 
     if args.wandb:
         os.environ["WANDB_MODE"] = "online"
         os.environ.pop("WANDB_RUN_ID", None)
 
     args.envs = args.envs or tales.envs
-    args.envs = [  # Expand tasks into their respective environments.
+    args.envs = [
         env
         for task in args.envs
         for env in (tales.envs_per_task[task] if task in tales.tasks else [task])
