@@ -28,6 +28,8 @@ export API_KEY="your-tritonai-key"
 export TRITON_API_KEY="$API_KEY"
 ```
 
+**Note:** `collect_data.py` (steps 2a–2b) uses rule-based collectors (diverse, noisy-walkthrough) that do **not** make LLM calls—no API key is needed. The evaluation pipeline (steps 4+) uses LLM agents (graph, llm-vqvae, memory-agent) and **requires** a TritonAI API key.
+
 ### 1. Create Evaluation Subset (if missing)
 
 ```bash
@@ -40,20 +42,25 @@ python scripts/categorize_tasks.py -o data/task_categories.json
 Collect trajectories on the **exact 20 envs** from the evaluation subset, then train. Run from repo root:
 
 ```bash
-# Envs from evaluation subset (5 per skill: Jericho, ALFWorld, TWCooking, ScienceWorld, TWX)
-ENVS=$(python -c "import json; print(' '.join(json.load(open('data/evaluation_subset.json'))['envs']))")
-
 cd latent-action
 
 # 2a: Collect trajectories on evaluation subset (use tmux/screen for long runs)
 python collect_data.py --agent agents/collectors.py --agent-name diverse-collector \
-  --envs $ENVS \
+  --envs JerichoEnv905 JerichoEnvAcorncourt JerichoEnvAdvent JerichoEnvAdventureland JerichoEnvAfflicted \
+  ALFWorldLookAtObjInLightSeen TWCookingLevel10 ALFWorldLookAtObjInLightUnseen ScienceWorldBoil ScienceWorldMelt \
+  TWXSimonSays10 TWXCookingWorld TWXSimonSays100 TWXSimonSaysWithMemory10 TWXSimonSays50 \
+  ALFWorldPickAndPlaceSimpleSeen ALFWorldPickCleanThenPlaceInRecepSeen ALFWorldPickHeatThenPlaceInRecepSeen \
+  ALFWorldPickCoolThenPlaceInRecepSeen ALFWorldPickTwoObjAndPlaceSeen \
   --episodes-per-game 10 --runs-per-env 3 \
   --output-dir data/trajectories/diverse \
   --nb-steps 200
 
 python collect_data.py --agent agents/collectors.py --agent-name noisy-walkthrough \
-  --envs $ENVS \
+  --envs JerichoEnv905 JerichoEnvAcorncourt JerichoEnvAdvent JerichoEnvAdventureland JerichoEnvAfflicted \
+  ALFWorldLookAtObjInLightSeen TWCookingLevel10 ALFWorldLookAtObjInLightUnseen ScienceWorldBoil ScienceWorldMelt \
+  TWXSimonSays10 TWXCookingWorld TWXSimonSays100 TWXSimonSaysWithMemory10 TWXSimonSays50 \
+  ALFWorldPickAndPlaceSimpleSeen ALFWorldPickCleanThenPlaceInRecepSeen ALFWorldPickHeatThenPlaceInRecepSeen \
+  ALFWorldPickCoolThenPlaceInRecepSeen ALFWorldPickTwoObjAndPlaceSeen \
   --episodes-per-game 10 --runs-per-env 3 \
   --output-dir data/trajectories/noisy_walkthrough \
   --noise-rate 0.15 --nb-steps 200
@@ -81,6 +88,12 @@ python scripts/select_diagnostic_tasks.py -o data/diagnostic_tasks.json
 
 ```bash
 ./scripts/run_full_evaluation.sh
+```
+
+Quick test (5 steps for diagnostics and full benchmark):
+
+```bash
+NB_STEPS=5 NB_STEPS_DIAG=5 ./scripts/run_full_evaluation.sh
 ```
 
 Runs (all agents use `--admissible-commands --seed 20241001`):
@@ -143,10 +156,13 @@ python benchmark.py --agent agents/memory_agent.py memory-agent \
 
 ### 4. Full benchmark (evaluation subset, equalized args)
 ```bash
-ENVS=$(python -c "import json; print(' '.join(json.load(open('data/evaluation_subset.json'))['envs']))")
-
 python benchmark.py --agent agents/graph_agent.py graph \
-  --envs $ENVS --admissible-commands --nb-steps 100 --seed 20241001 \
+  --envs JerichoEnv905 JerichoEnvAcorncourt JerichoEnvAdvent JerichoEnvAdventureland JerichoEnvAfflicted \
+  ALFWorldLookAtObjInLightSeen TWCookingLevel10 ALFWorldLookAtObjInLightUnseen ScienceWorldBoil ScienceWorldMelt \
+  TWXSimonSays10 TWXCookingWorld TWXSimonSays100 TWXSimonSaysWithMemory10 TWXSimonSays50 \
+  ALFWorldPickAndPlaceSimpleSeen ALFWorldPickCleanThenPlaceInRecepSeen ALFWorldPickHeatThenPlaceInRecepSeen \
+  ALFWorldPickCoolThenPlaceInRecepSeen ALFWorldPickTwoObjAndPlaceSeen \
+  --admissible-commands --nb-steps 100 --seed 20241001 \
   --conversation --api-key $API_KEY
 ```
 

@@ -1124,7 +1124,7 @@
     "skill_weights": {
       "spatial": 0.18,
       "deductive": 0.28,
-      "inductive": 0.37,
+      "inductive": 0.38,
       "grounded": 0.17
     },
     "difficulty": "easy"

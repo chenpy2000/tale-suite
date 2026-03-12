@@ -322,7 +322,7 @@ class GraphAgent(LLMAgent):
         
         adm = getattr(self, "_current_admissible", [])
         if adm:
-            adm_str = "\n".join([f"  {a}" for a in adm])
+            adm_str = "\n".join([f"  {a}" for a in adm if a is not None])
             valid_commands_help = f"[Current Admissible Commands]\n{adm_str}\n\nAnalyze the graph and your goal. Which Valid Command gets you closer to the objective? Output ONLY using the THOUGHT: and COMMAND: format."
         else:
             valid_commands_help = "\n[CRITICAL INSTRUCTION]\nYou MUST ONLY reply using the THOUGHT: and COMMAND: format."

@@ -26,11 +26,6 @@ def get_token_counter(model: Optional[Model] = None):
         try:
             return OpenAITokenCounter(model.model_id)
         except KeyError:
-            warnings.warn(
-                f"Tokenizer mapping not found for model '{model.model_id}'. "
-                "Falling back to gpt-4o tokenizer for token counting.",
-                UserWarning,
-            )
             return OpenAITokenCounter("gpt-4o")
 
     try:

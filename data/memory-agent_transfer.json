@@ -1,0 +1,1492 @@
+{
+  "agent": "MemoryAgent_vstructured_s20241001_ce8_retr0_opt0_llm0_lp0_lc0",
+  "diagnostic_scores": {
+    "spatial": 0.0206,
+    "deductive": 0.0,
+    "inductive": 0.0,
+    "grounded": 0.0
+  },
+  "transfer_analysis": {
+    "r_squared": -1.0362,
+    "mse": 0.2843,
+    "mae": 0.3801,
+    "predictions": [
+      {
+        "task": "JerichoEnvJewel",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.0222,
+        "error": 0.014,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvCurses",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.02,
+        "error": 0.0118,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvGold",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.03,
+        "error": 0.0218,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvDragon",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.6,
+        "error": 0.5918,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWCookingLevel2",
+        "skill_weights": {
+          "spatial": 0.19,
+          "deductive": 0.28,
+          "inductive": 0.36,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.0039,
+        "actual_score": 1.0,
+        "error": 0.9961,
+        "skill_contributions": {
+          "spatial": 0.0039,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ALFWorldPickAndPlaceSimpleSeen",
+        "skill_weights": {
+          "spatial": 0.2,
+          "deductive": 0.3,
+          "inductive": 0.2,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0041,
+        "actual_score": 1.0,
+        "error": 0.9959,
+        "skill_contributions": {
+          "spatial": 0.0041,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvHuntdark",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 1.0,
+        "error": 0.9918,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvAwaken",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 1.0,
+        "error": 0.9918,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvDetective",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.1667,
+        "error": 0.1585,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvAnchor",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.24,
+        "error": 0.2318,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvNight",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.2,
+        "error": 0.1918,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvBallyhoo",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.5,
+        "error": 0.4918,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvMurdac",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.036,
+        "error": 0.0278,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvLurking",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.3,
+        "error": 0.2918,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvKarn",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.0294,
+        "error": 0.0212,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvEnchanter",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.05,
+        "error": 0.0418,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWCookingLevel9",
+        "skill_weights": {
+          "spatial": 0.23,
+          "deductive": 0.3,
+          "inductive": 0.31,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.0047,
+        "actual_score": 0.1818,
+        "error": 0.1771,
+        "skill_contributions": {
+          "spatial": 0.0047,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvLibrary",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.2333,
+        "error": 0.2251,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWCookingLevel3",
+        "skill_weights": {
+          "spatial": 0.19,
+          "deductive": 0.29,
+          "inductive": 0.35,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.0039,
+        "actual_score": 0.5,
+        "error": 0.4961,
+        "skill_contributions": {
+          "spatial": 0.0039,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWCookingLevel10",
+        "skill_weights": {
+          "spatial": 0.23,
+          "deductive": 0.3,
+          "inductive": 0.3,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.0047,
+        "actual_score": 0.0909,
+        "error": 0.0862,
+        "skill_contributions": {
+          "spatial": 0.0047,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvAfflicted",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.04,
+        "error": 0.0318,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvEnter",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.3,
+        "error": 0.2918,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ALFWorldPickTwoObjAndPlaceUnseen",
+        "skill_weights": {
+          "spatial": 0.2,
+          "deductive": 0.3,
+          "inductive": 0.2,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0041,
+        "actual_score": 1.0,
+        "error": 0.9959,
+        "skill_contributions": {
+          "spatial": 0.0041,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ALFWorldPickHeatThenPlaceInRecepSeen",
+        "skill_weights": {
+          "spatial": 0.2,
+          "deductive": 0.3,
+          "inductive": 0.2,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0041,
+        "actual_score": 1.0,
+        "error": 0.9959,
+        "skill_contributions": {
+          "spatial": 0.0041,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ALFWorldPickTwoObjAndPlaceSeen",
+        "skill_weights": {
+          "spatial": 0.2,
+          "deductive": 0.3,
+          "inductive": 0.2,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0041,
+        "actual_score": 1.0,
+        "error": 0.9959,
+        "skill_contributions": {
+          "spatial": 0.0041,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ALFWorldPickHeatThenPlaceInRecepUnseen",
+        "skill_weights": {
+          "spatial": 0.2,
+          "deductive": 0.3,
+          "inductive": 0.2,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0041,
+        "actual_score": 1.0,
+        "error": 0.9959,
+        "skill_contributions": {
+          "spatial": 0.0041,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ALFWorldLookAtObjInLightUnseen",
+        "skill_weights": {
+          "spatial": 0.2,
+          "deductive": 0.3,
+          "inductive": 0.2,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0041,
+        "actual_score": 1.0,
+        "error": 0.9959,
+        "skill_contributions": {
+          "spatial": 0.0041,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWCookingLevel1",
+        "skill_weights": {
+          "spatial": 0.18,
+          "deductive": 0.28,
+          "inductive": 0.38,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.0037,
+        "actual_score": 0.3333,
+        "error": 0.3296,
+        "skill_contributions": {
+          "spatial": 0.0037,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvCutthroat",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.36,
+        "error": 0.3518,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWCookingLevel6",
+        "skill_weights": {
+          "spatial": 0.21,
+          "deductive": 0.29,
+          "inductive": 0.33,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.0043,
+        "actual_score": 0.3333,
+        "error": 0.329,
+        "skill_contributions": {
+          "spatial": 0.0043,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvBalances",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.1961,
+        "error": 0.1879,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ALFWorldPickCleanThenPlaceInRecepSeen",
+        "skill_weights": {
+          "spatial": 0.2,
+          "deductive": 0.3,
+          "inductive": 0.2,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0041,
+        "actual_score": 1.0,
+        "error": 0.9959,
+        "skill_contributions": {
+          "spatial": 0.0041,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnv905",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 1.0,
+        "error": 0.9918,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvHhgg",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.275,
+        "error": 0.2668,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWCookingLevel8",
+        "skill_weights": {
+          "spatial": 0.22,
+          "deductive": 0.3,
+          "inductive": 0.31,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.0045,
+        "actual_score": 0.2,
+        "error": 0.1955,
+        "skill_contributions": {
+          "spatial": 0.0045,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvDeephome",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.0033,
+        "error": -0.0049,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvAdvent",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.1029,
+        "error": 0.0947,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ALFWorldPickAndPlaceSimpleUnseen",
+        "skill_weights": {
+          "spatial": 0.2,
+          "deductive": 0.3,
+          "inductive": 0.2,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0041,
+        "actual_score": 1.0,
+        "error": 0.9959,
+        "skill_contributions": {
+          "spatial": 0.0041,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvInfidel",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.0125,
+        "error": 0.0043,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvLudicorp",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.04,
+        "error": 0.0318,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWCookingLevel7",
+        "skill_weights": {
+          "spatial": 0.22,
+          "deductive": 0.3,
+          "inductive": 0.32,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.0045,
+        "actual_score": 0.6,
+        "error": 0.5955,
+        "skill_contributions": {
+          "spatial": 0.0045,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvOmniquest",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.1,
+        "error": 0.0918,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWCookingLevel5",
+        "skill_weights": {
+          "spatial": 0.21,
+          "deductive": 0.29,
+          "inductive": 0.33,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.0043,
+        "actual_score": 0.3333,
+        "error": 0.329,
+        "skill_contributions": {
+          "spatial": 0.0043,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ALFWorldPickCoolThenPlaceInRecepUnseen",
+        "skill_weights": {
+          "spatial": 0.2,
+          "deductive": 0.3,
+          "inductive": 0.2,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0041,
+        "actual_score": 1.0,
+        "error": 0.9959,
+        "skill_contributions": {
+          "spatial": 0.0041,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvAcorncourt",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.3333,
+        "error": 0.3251,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvLoose",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.08,
+        "error": 0.0718,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWCookingLevel4",
+        "skill_weights": {
+          "spatial": 0.2,
+          "deductive": 0.29,
+          "inductive": 0.34,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.0041,
+        "actual_score": 0.3333,
+        "error": 0.3292,
+        "skill_contributions": {
+          "spatial": 0.0041,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvLostpig",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.1429,
+        "error": 0.1347,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ALFWorldPickCleanThenPlaceInRecepUnseen",
+        "skill_weights": {
+          "spatial": 0.2,
+          "deductive": 0.3,
+          "inductive": 0.2,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0041,
+        "actual_score": 1.0,
+        "error": 0.9959,
+        "skill_contributions": {
+          "spatial": 0.0041,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXSimonSaysWithMemory10",
+        "skill_weights": {
+          "spatial": 0.1,
+          "deductive": 0.1,
+          "inductive": 0.7,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0021,
+        "actual_score": 0.2,
+        "error": 0.1979,
+        "skill_contributions": {
+          "spatial": 0.0021,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXSimonSays50",
+        "skill_weights": {
+          "spatial": 0.1,
+          "deductive": 0.1,
+          "inductive": 0.6,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0021,
+        "actual_score": 0.02,
+        "error": 0.0179,
+        "skill_contributions": {
+          "spatial": 0.0021,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXSimonSays100",
+        "skill_weights": {
+          "spatial": 0.1,
+          "deductive": 0.1,
+          "inductive": 0.6,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0021,
+        "actual_score": 0.01,
+        "error": 0.0079,
+        "skill_contributions": {
+          "spatial": 0.0021,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXCookingWorld",
+        "skill_weights": {
+          "spatial": 0.19,
+          "deductive": 0.29,
+          "inductive": 0.35,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.0039,
+        "actual_score": 0.42,
+        "error": 0.4161,
+        "skill_contributions": {
+          "spatial": 0.0039,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXSimonSays10",
+        "skill_weights": {
+          "spatial": 0.1,
+          "deductive": 0.1,
+          "inductive": 0.6,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0021,
+        "actual_score": 0.1,
+        "error": 0.0979,
+        "skill_contributions": {
+          "spatial": 0.0021,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ScienceWorldGrowFruit",
+        "skill_weights": {
+          "spatial": 0.15,
+          "deductive": 0.4,
+          "inductive": 0.25,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0031,
+        "actual_score": 0.12,
+        "error": 0.1169,
+        "skill_contributions": {
+          "spatial": 0.0031,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvSorcerer",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.0125,
+        "error": 0.0043,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ScienceWorldLifespanShortestLived",
+        "skill_weights": {
+          "spatial": 0.15,
+          "deductive": 0.4,
+          "inductive": 0.25,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0031,
+        "actual_score": 1.0,
+        "error": 0.9969,
+        "skill_contributions": {
+          "spatial": 0.0031,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ScienceWorldInclinedPlaneFrictionUnnamedSurfaces",
+        "skill_weights": {
+          "spatial": 0.15,
+          "deductive": 0.4,
+          "inductive": 0.25,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0031,
+        "actual_score": 0.05,
+        "error": 0.0469,
+        "skill_contributions": {
+          "spatial": 0.0031,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXSimonSaysWithMemory100",
+        "skill_weights": {
+          "spatial": 0.1,
+          "deductive": 0.1,
+          "inductive": 0.7,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0021,
+        "actual_score": 0.02,
+        "error": 0.0179,
+        "skill_contributions": {
+          "spatial": 0.0021,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvSpellbrkr",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.0417,
+        "error": 0.0335,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXSimonSaysWithMemory100Verbose",
+        "skill_weights": {
+          "spatial": 0.1,
+          "deductive": 0.1,
+          "inductive": 0.7,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0021,
+        "actual_score": 0.02,
+        "error": 0.0179,
+        "skill_contributions": {
+          "spatial": 0.0021,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ScienceWorldChemistryMix",
+        "skill_weights": {
+          "spatial": 0.15,
+          "deductive": 0.4,
+          "inductive": 0.25,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0031,
+        "actual_score": 0.25,
+        "error": 0.2469,
+        "skill_contributions": {
+          "spatial": 0.0031,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ScienceWorldGrowPlant",
+        "skill_weights": {
+          "spatial": 0.15,
+          "deductive": 0.4,
+          "inductive": 0.25,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0031,
+        "actual_score": 0.07,
+        "error": 0.0669,
+        "skill_contributions": {
+          "spatial": 0.0031,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ScienceWorldChemistryMixPaintSecondaryColor",
+        "skill_weights": {
+          "spatial": 0.15,
+          "deductive": 0.4,
+          "inductive": 0.25,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0031,
+        "actual_score": 0.2,
+        "error": 0.1969,
+        "skill_contributions": {
+          "spatial": 0.0031,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXSimonSaysWithMemory50",
+        "skill_weights": {
+          "spatial": 0.1,
+          "deductive": 0.1,
+          "inductive": 0.7,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0021,
+        "actual_score": 0.04,
+        "error": 0.0379,
+        "skill_contributions": {
+          "spatial": 0.0021,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXPeckingOrder",
+        "skill_weights": {
+          "spatial": 0.1,
+          "deductive": 0.5,
+          "inductive": 0.3,
+          "grounded": 0.1
+        },
+        "predicted_score": 0.0021,
+        "actual_score": 0.75,
+        "error": 0.7479,
+        "skill_contributions": {
+          "spatial": 0.0021,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ScienceWorldLifespanLongestLivedThenShortestLived",
+        "skill_weights": {
+          "spatial": 0.15,
+          "deductive": 0.4,
+          "inductive": 0.25,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0031,
+        "actual_score": 0.33,
+        "error": 0.3269,
+        "skill_contributions": {
+          "spatial": 0.0031,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXTextWorldCommonsense",
+        "skill_weights": {
+          "spatial": 0.2,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.4
+        },
+        "predicted_score": 0.0041,
+        "actual_score": 1.0,
+        "error": 0.9959,
+        "skill_contributions": {
+          "spatial": 0.0041,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvWishbringer",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.01,
+        "error": 0.0018,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ScienceWorldFindNonLivingThing",
+        "skill_weights": {
+          "spatial": 0.15,
+          "deductive": 0.4,
+          "inductive": 0.25,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0031,
+        "actual_score": 0.5,
+        "error": 0.4969,
+        "skill_contributions": {
+          "spatial": 0.0031,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ScienceWorldPowerComponentRenewableVsNonrenewableEnergy",
+        "skill_weights": {
+          "spatial": 0.15,
+          "deductive": 0.4,
+          "inductive": 0.25,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0031,
+        "actual_score": 0.1,
+        "error": 0.0969,
+        "skill_contributions": {
+          "spatial": 0.0031,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ScienceWorldTestConductivity",
+        "skill_weights": {
+          "spatial": 0.15,
+          "deductive": 0.4,
+          "inductive": 0.25,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0031,
+        "actual_score": 0.55,
+        "error": 0.5469,
+        "skill_contributions": {
+          "spatial": 0.0031,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXMapReader",
+        "skill_weights": {
+          "spatial": 0.5,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.1
+        },
+        "predicted_score": 0.0103,
+        "actual_score": 1.0,
+        "error": 0.9897,
+        "skill_contributions": {
+          "spatial": 0.0103,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ScienceWorldChemistryMixPaintTertiaryColor",
+        "skill_weights": {
+          "spatial": 0.15,
+          "deductive": 0.4,
+          "inductive": 0.25,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0031,
+        "actual_score": 0.07,
+        "error": 0.0669,
+        "skill_contributions": {
+          "spatial": 0.0031,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXCoinCollector",
+        "skill_weights": {
+          "spatial": 0.3,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0062,
+        "actual_score": 1.0,
+        "error": 0.9938,
+        "skill_contributions": {
+          "spatial": 0.0062,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "JerichoEnvTrinity",
+        "skill_weights": {
+          "spatial": 0.4,
+          "deductive": 0.2,
+          "inductive": 0.2,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0082,
+        "actual_score": 0.03,
+        "error": 0.0218,
+        "skill_contributions": {
+          "spatial": 0.0082,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXSimonSaysWithMemory10Verbose",
+        "skill_weights": {
+          "spatial": 0.1,
+          "deductive": 0.1,
+          "inductive": 0.7,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0021,
+        "actual_score": 0.3,
+        "error": 0.2979,
+        "skill_contributions": {
+          "spatial": 0.0021,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ScienceWorldPowerComponent",
+        "skill_weights": {
+          "spatial": 0.15,
+          "deductive": 0.4,
+          "inductive": 0.25,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0031,
+        "actual_score": 0.13,
+        "error": 0.1269,
+        "skill_contributions": {
+          "spatial": 0.0031,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "ScienceWorldLifespanLongestLived",
+        "skill_weights": {
+          "spatial": 0.15,
+          "deductive": 0.4,
+          "inductive": 0.25,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0031,
+        "actual_score": 0.5,
+        "error": 0.4969,
+        "skill_contributions": {
+          "spatial": 0.0031,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXSimonSaysWithMemory50Verbose",
+        "skill_weights": {
+          "spatial": 0.1,
+          "deductive": 0.1,
+          "inductive": 0.7,
+          "grounded": 0.2
+        },
+        "predicted_score": 0.0021,
+        "actual_score": 0.04,
+        "error": 0.0379,
+        "skill_contributions": {
+          "spatial": 0.0021,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXArithmetic",
+        "skill_weights": {
+          "spatial": 0.1,
+          "deductive": 0.5,
+          "inductive": 0.3,
+          "grounded": 0.1
+        },
+        "predicted_score": 0.0021,
+        "actual_score": 1.0,
+        "error": 0.9979,
+        "skill_contributions": {
+          "spatial": 0.0021,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXSorting",
+        "skill_weights": {
+          "spatial": 0.1,
+          "deductive": 0.5,
+          "inductive": 0.3,
+          "grounded": 0.1
+        },
+        "predicted_score": 0.0021,
+        "actual_score": 0.4,
+        "error": 0.3979,
+        "skill_contributions": {
+          "spatial": 0.0021,
+          "deductive": 0.0,
+          "inductive": 0.0,
+          "grounded": 0.0
+        }
+      }
+    ]
+  }
+}

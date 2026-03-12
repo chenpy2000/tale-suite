@@ -5,10 +5,19 @@ set -e
 
 [ -f .env ] && export $(cat .env | xargs)
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_ROOT="$(pwd)"
+
+# Use project's .llm/ for extra-openai-models.yaml (api-gpt-oss-120b, api-llama-4-scout, etc.)
+export LLM_USER_PATH="${LLM_USER_PATH:-$PROJECT_ROOT/.llm}"
+
+# Ensure Triton keys are set when API_KEY is provided (graph, memory-agent, llm-vqvae use them)
+[[ -n "$API_KEY" ]] && export TRITON_API_KEY="${TRITON_API_KEY:-$API_KEY}" && export TRITONAI_API_KEY="${TRITONAI_API_KEY:-$API_KEY}"
 
 AGENTS=(graph llm-vqvae memory-agent)
 API_KEY="${API_KEY:-}"
 DIAGNOSTIC_CONFIG="${DIAGNOSTIC_CONFIG:-}"
+NB_STEPS="${NB_STEPS:-100}"
+NB_STEPS_DIAG="${NB_STEPS_DIAG:-50}"
 
 get_agent_file() {
     case "$1" in
@@ -37,12 +46,17 @@ for agent in "${AGENTS[@]}"; do
     f=$(get_agent_file "$agent")
     [[ -f "$f" ]] || { echo "Skip $agent: $f not found"; continue; }
     extra=""
-    [[ "$agent" == "graph" ]] && extra="--conversation"
+    [[ "$agent" == "graph" ]] && extra="--conversation --llm api-gpt-oss-120b"
+    api_key_arg=""
+    if [[ -n "$API_KEY" ]]; then
+        [[ "$agent" == "llm-vqvae" ]] && api_key_arg="--api-key $API_KEY"
+        [[ "$agent" == "graph" ]] && api_key_arg="--key $API_KEY"
+        [[ "$agent" == "memory-agent" ]] && api_key_arg="--llm-api-key $API_KEY"
+    fi
     python benchmark.py --agent "$f" "$agent" \
         --diagnostic-tests data/diagnostic_tasks.json \
-        --admissible-commands --nb-steps 50 --seed 20241001 \
-        ${API_KEY:+--api-key "$API_KEY"} \
-        $extra \
+        --admissible-commands --nb-steps ${NB_STEPS_DIAG} --seed 20241001 \
+        $api_key_arg $extra \
         --output-metrics "logs/${agent}_diagnostic.json"
 done
 
@@ -53,10 +67,16 @@ for agent in "${AGENTS[@]}"; do
     f=$(get_agent_file "$agent")
     [[ -f "$f" ]] || continue
     extra=""
-    [[ "$agent" == "graph" ]] && extra="--conversation"
+    [[ "$agent" == "graph" ]] && extra="--conversation --llm api-gpt-oss-120b"
+    api_key_arg=""
+    if [[ -n "$API_KEY" ]]; then
+        [[ "$agent" == "llm-vqvae" ]] && api_key_arg="--api-key $API_KEY"
+        [[ "$agent" == "graph" ]] && api_key_arg="--key $API_KEY"
+        [[ "$agent" == "memory-agent" ]] && api_key_arg="--llm-api-key $API_KEY"
+    fi
     python benchmark.py --agent "$f" "$agent" --envs $ENVS \
-        --admissible-commands --nb-steps 100 --seed 20241001 \
-        ${API_KEY:+--api-key "$API_KEY"} $extra
+        --admissible-commands --nb-steps ${NB_STEPS} --seed 20241001 \
+        $api_key_arg $extra
 done
 
 # 5. Transfer analysis
@@ -72,7 +92,6 @@ done
 # 6. Run hybrid agents
 echo "Step 6: Running hybrid agents..."
 VQVAE_CKPT="latent-action/checkpoints/vqvae_checkpoint.pt"
-NB_STEPS=100
 if [[ -z "$API_KEY" ]]; then
     echo "Skipping hybrids: API_KEY not set"
 else
@@ -90,7 +109,7 @@ python benchmark.py --agent agents/hybrid_agents.py graph-vqvae \
 python benchmark.py --agent agents/hybrid_agents.py graph-vqvae \
   --api-key "$API_KEY" --vqvae-checkpoint "$VQVAE_CKPT" \
   --graph-weight 0.6 --vqvae-weight 0.4 \
-  $COMMON --diagnostic-tests data/diagnostic_tasks.json --nb-steps 50 \
+  $COMMON --diagnostic-tests data/diagnostic_tasks.json --nb-steps ${NB_STEPS_DIAG} \
   --output-metrics logs/hybrid_gv_diagnostic.json 2>/dev/null || true
 
 # Memory + ReAct (full + diagnostic)
@@ -100,7 +119,7 @@ python benchmark.py --agent agents/hybrid_agents.py memory-react \
 
 python benchmark.py --agent agents/hybrid_agents.py memory-react \
   --api-key "$API_KEY" --memory-weight 0.5 --react-weight 0.5 \
-  --conversation $COMMON --diagnostic-tests data/diagnostic_tasks.json --nb-steps 50 \
+  --conversation $COMMON --diagnostic-tests data/diagnostic_tasks.json --nb-steps ${NB_STEPS_DIAG} \
   --output-metrics logs/hybrid_mr_diagnostic.json 2>/dev/null || true
 
 # Full Hybrid (full + diagnostic)
@@ -112,7 +131,7 @@ python benchmark.py --agent agents/hybrid_agents.py full-hybrid \
 python benchmark.py --agent agents/hybrid_agents.py full-hybrid \
   --api-key "$API_KEY" --vqvae-checkpoint "$VQVAE_CKPT" \
   --graph-weight 0.3 --vqvae-weight 0.3 --memory-weight 0.2 --react-weight 0.2 \
-  --conversation $COMMON --diagnostic-tests data/diagnostic_tasks.json --nb-steps 50 \
+  --conversation $COMMON --diagnostic-tests data/diagnostic_tasks.json --nb-steps ${NB_STEPS_DIAG} \
   --output-metrics logs/hybrid_full_diagnostic.json 2>/dev/null || true
 fi
 

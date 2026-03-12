@@ -619,6 +619,7 @@ def build_argparser(parser=None):
     g.add_argument("--window-size", type=int, default=None)
     g.add_argument("--vqvae-top-k", type=int, default=5)
     g.add_argument("--agent-step-budget", type=int, default=200)
+    g.add_argument("--seed", type=int, default=20241001, help="Random seed for reproducibility.")
     g.add_argument("--debug-agent", action="store_true")
     return parser
 
