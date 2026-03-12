@@ -212,6 +212,47 @@ class GraphAgent(LLMAgent):
             if s == "Player" and r in {"INSIDE", "IN_ROOM"}:
                 self.current_room = o
 
+    def score_actions(self, obs, admissible_commands, info):
+        """Graph heuristic: prefer unexplored navigation, object interactions."""
+        admissible = list(admissible_commands or [])
+        if not admissible:
+            return {}
+        scores = {a: 0.0 for a in admissible}
+        lowered = (obs or "").lower()
+
+        # Unexplored directions: highest
+        unexplored_dirs = []
+        if hasattr(self, "graph") and self.current_room != "Unknown":
+            unexp_node = self._canon_entity("Unexplored Room")
+            curr_node = self._canon_entity(self.current_room)
+            for u, v, k, data in self.graph.edges(data=True, keys=True):
+                if u == curr_node and v == unexp_node and k.startswith("CONNECTED_TO_"):
+                    unexplored_dirs.append(f"go {k.replace('CONNECTED_TO_', '').lower()}")
+        for cmd in admissible:
+            if cmd in unexplored_dirs:
+                scores[cmd] = 1.0
+
+        # Object mentions in obs: examine/take
+        nouns = re.findall(r"\b[a-z]{4,}\b", lowered)
+        for cmd in admissible:
+            if scores[cmd] > 0:
+                continue
+            for noun in nouns[:5]:
+                if noun in cmd.lower() and any(cmd.lower().startswith(v) for v in ["examine ", "take "]):
+                    scores[cmd] = 0.8
+                    break
+
+        # look, inventory: baseline
+        for cmd in admissible:
+            if scores[cmd] == 0 and cmd in ("look", "inventory"):
+                scores[cmd] = 0.5
+
+        if scores:
+            mx = max(scores.values())
+            if mx > 0:
+                scores = {a: s / mx for a, s in scores.items()}
+        return scores
+
     def _get_graph_context(self):
         if len(self.graph.nodes) == 0: return "No mapped surroundings yet."
         context = "Current Graph State (Known Map & Objects):\n"
@@ -336,6 +377,8 @@ class GraphAgent(LLMAgent):
                 pruned = [cmd for cmd in self._current_admissible if not cmd.startswith("go ") or cmd in unexplored_dirs]
                 if pruned: self._current_admissible = pruned
 
+        graph_scores = self.score_actions(obs, self._current_admissible, infos) if self._current_admissible else {}
+
         # --- Base LLM inference (Now returning THOUGHT and COMMAND) ---
         raw_output, stats = super().act(obs, reward, done, infos)
 
@@ -364,7 +407,10 @@ class GraphAgent(LLMAgent):
                         action, matched = cmd, True
                         break
             if not matched:
-                action = str(self.rng.choice(self._current_admissible))
+                if graph_scores:
+                    action = max(graph_scores, key=graph_scores.get)
+                else:
+                    action = str(self.rng.choice(self._current_admissible))
             
             # --- CRITICAL: Context Window Cleanup ---
             # Rewrite history so we don't pollute the LLM's context token limit with "THOUGHT: ..."
@@ -377,6 +423,8 @@ class GraphAgent(LLMAgent):
                 self.history[-1] = (last_obs, f"{action}\n")
 
         self.last_action = str(action)
+        if graph_scores:
+            stats["action_scores"] = graph_scores
         return str(action), stats
 
 

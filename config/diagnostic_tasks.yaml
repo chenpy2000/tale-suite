@@ -1,0 +1,68 @@
+# Flat format for: select_diagnostic_tasks.py --config config/diagnostic_tasks.yaml
+spatial:
+  - task: TWCookingLevel1
+    difficulty: easy
+    episodes: 1
+  - task: TWCookingLevel3
+    difficulty: medium
+    episodes: 1
+  - task: TWCookingLevel5
+    difficulty: medium-hard
+    episodes: 1
+  - task: TWCookingLevel7
+    difficulty: hard
+    episodes: 1
+  - task: TWCookingLevel9
+    difficulty: very-hard
+    episodes: 1
+
+deductive:
+  - task: TWCookingLevel2
+    difficulty: easy
+    episodes: 1
+  - task: TWCookingLevel4
+    difficulty: medium
+    episodes: 1
+  - task: TWCookingLevel6
+    difficulty: medium-hard
+    episodes: 1
+  - task: TWCookingLevel8
+    difficulty: hard
+    episodes: 1
+  - task: TWCookingLevel10
+    difficulty: very-hard
+    episodes: 1
+
+inductive:
+  - task: TWCookingLevel1
+    difficulty: easy
+    episodes: 5
+  - task: TWCookingLevel2
+    difficulty: easy
+    episodes: 5
+  - task: TWCookingLevel4
+    difficulty: medium
+    episodes: 5
+  - task: TWCookingLevel6
+    difficulty: medium-hard
+    episodes: 5
+  - task: TWCookingLevel8
+    difficulty: hard
+    episodes: 5
+
+grounded:
+  - task: TWCookingLevel3
+    difficulty: easy
+    episodes: 1
+  - task: TWCookingLevel5
+    difficulty: medium
+    episodes: 1
+  - task: TWCookingLevel7
+    difficulty: medium-hard
+    episodes: 1
+  - task: TWCookingLevel9
+    difficulty: hard
+    episodes: 1
+  - task: TWCookingLevel10
+    difficulty: very-hard
+    episodes: 1

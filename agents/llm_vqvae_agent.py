@@ -445,6 +445,45 @@ class LLMVQVAEAgent(tales.Agent):
 
         return False
 
+    def _compute_vq_scores(self, obs_str, admissible):
+        """VQ-VAE forward + per-action log-probs. Returns (scores_dict, log_probs_tensor)."""
+        if not admissible:
+            return {}, None
+        last_obs = self.obs_h[-(self.w - 1) :] + [obs_str]
+        last_act = self.act_h[-(self.w - 1) :] + [PAD]
+        obs_seq = ([""] * (self.w - len(last_obs)) + last_obs)[-self.w :]
+        act_seq = ([PAD] * (self.w - len(last_act)) + last_act)[-self.w :]
+        obs_seq = [normalize_text(o) for o in obs_seq]
+        act_seq = [PAD if a == PAD else normalize_text(a) for a in act_seq]
+        self.vqvae.to(self.vqvae.device)
+        with torch.no_grad():
+            logits, _, _, _ = self.vqvae([obs_seq], [act_seq])
+            last_logits = logits[0, -1].float().clamp(-50.0, 50.0)
+            log_probs = torch.log_softmax(last_logits, dim=-1)
+        vq_scores = {}
+        unk_idx = self.vqvae.action_vocab.stoi.get(UNK, 0)
+        for cmd in admissible:
+            try:
+                idx = self.vqvae.action_vocab.encode(normalize_text(cmd))
+                vq_scores[cmd] = float(log_probs[idx].item())
+            except Exception:
+                vq_scores[cmd] = float(log_probs[unk_idx].item())
+        return vq_scores, log_probs
+
+    def score_actions(self, obs, admissible_commands, info):
+        """VQ-VAE log-probs per action. Returns dict[action, score] in [0, 1]."""
+        admissible = list(admissible_commands or [])
+        if not admissible:
+            return {}
+        obs_str = normalize_text(obs)
+        vq_scores, _ = self._compute_vq_scores(obs_str, admissible)
+        if not vq_scores:
+            return {}
+        mn, mx = min(vq_scores.values()), max(vq_scores.values())
+        if mx > mn:
+            return {a: (s - mn) / (mx - mn) for a, s in vq_scores.items()}
+        return {a: 1.0 for a in vq_scores}
+
     def _pick_unstuck_action(self, admissible, sorted_by_vq, log):
         by_count = sorted(admissible, key=lambda c: self.action_counts.get(normalize_text(c), 0))
         least_count = self.action_counts.get(normalize_text(by_count[0]), 0)
@@ -465,29 +504,8 @@ class LLMVQVAEAgent(tales.Agent):
         self.step_num += 1
         obs_str = normalize_text(obs)
 
-        # VQ-VAE window
-        last_obs = self.obs_h[-(self.w - 1):] + [obs_str]
-        last_act = self.act_h[-(self.w - 1):] + [PAD]
-        obs_seq = ([""] * (self.w - len(last_obs)) + last_obs)[-self.w:]
-        act_seq = ([PAD] * (self.w - len(last_act)) + last_act)[-self.w:]
-        obs_seq = [normalize_text(o) for o in obs_seq]
-        act_seq = [PAD if a == PAD else normalize_text(a) for a in act_seq]
-
-        self.vqvae.to(self.vqvae.device)
-        with torch.no_grad():
-            logits, option_ids, _, _ = self.vqvae([obs_seq], [act_seq])
-            last_logits = logits[0, -1].float().clamp(-50.0, 50.0)
-            log_probs = torch.log_softmax(last_logits, dim=-1)
-
-        traj_pred = self._get_trajectory_prediction(log_probs, admissible)
-
-        vq_scores = {}
-        for cmd in admissible:
-            try:
-                idx = self.vqvae.action_vocab.encode(normalize_text(cmd))
-                vq_scores[cmd] = float(log_probs[idx].item())
-            except Exception:
-                vq_scores[cmd] = float(log_probs[self.vqvae.action_vocab.stoi[UNK]].item())
+        vq_scores, log_probs = self._compute_vq_scores(obs_str, admissible)
+        traj_pred = self._get_trajectory_prediction(log_probs, admissible) if log_probs is not None else []
 
         sorted_by_vq = sorted(vq_scores.items(), key=lambda x: -x[1])
         top_k = sorted_by_vq[:self.vqvae_top_k]
@@ -583,7 +601,12 @@ class LLMVQVAEAgent(tales.Agent):
         self.obs_h = self.obs_h[-(self.w + 35):]
         self.act_h = self.act_h[-self.w:]
 
-        return action, {"nb_tokens": 0}
+        norm_scores = {}
+        if vq_scores:
+            mn, mx = min(vq_scores.values()), max(vq_scores.values())
+            norm_scores = {a: (s - mn) / (mx - mn) if mx > mn else 1.0 for a, s in vq_scores.items()}
+        stats = {"nb_tokens": 0, "action_scores": norm_scores}
+        return action, stats
 
 
 def build_argparser(parser=None):

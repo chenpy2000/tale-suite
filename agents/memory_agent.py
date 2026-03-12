@@ -154,6 +154,8 @@ class MemoryAgent(tales.Agent):
         if self.retriever is not None:
             retrieved = self.retriever.query(obs, self.compressed_history)
 
+        self._last_act_updates = updates
+        self._last_act_retrieved = retrieved
         action = self._generate_action(obs, info, updates, retrieved)
         self.history.append(
             {
@@ -165,10 +167,13 @@ class MemoryAgent(tales.Agent):
             }
         )
 
+        admissible = list(info.get("admissible_commands") or [])
+        scores = self.score_actions(obs, admissible, info) if admissible else {}
         stats = {
             "prompt": self._build_prompt_debug(obs, updates, retrieved),
             "response": action,
             "nb_tokens": self.token_counter(text=obs),
+            "action_scores": scores,
         }
         return action, stats
 
@@ -194,6 +199,33 @@ class MemoryAgent(tales.Agent):
             "top_rules": [],
         }
 
+    def score_actions(
+        self,
+        obs: str,
+        admissible_commands: List[str],
+        info: Dict[str, Any],
+    ) -> Dict[str, float]:
+        """Score by option + heuristic candidate order. Returns dict[action, score] in [0, 1]."""
+        admissible = list(admissible_commands or [])
+        if not admissible:
+            return {}
+        updates = getattr(self, "_last_act_updates", {})
+        retrieved = getattr(self, "_last_act_retrieved", [])
+        option = self.option_module.choose_option(obs)
+        option_candidates = self.option_module.option_actions(option)
+        heuristics = self._heuristic_actions(obs, updates, retrieved)
+        candidates = option_candidates + heuristics
+        admissible_set = set(admissible)
+        scores = {a: 0.0 for a in admissible}
+        for rank, cand in enumerate(candidates):
+            if cand in admissible_set:
+                scores[cand] = max(scores.get(cand, 0), 1.0 - 0.1 * rank)
+        if scores:
+            mx = max(scores.values())
+            if mx > 0:
+                scores = {a: s / mx for a, s in scores.items()}
+        return scores
+
     def _generate_action(
         self,
         obs: str,
@@ -216,6 +248,9 @@ class MemoryAgent(tales.Agent):
 
         if admissible:
             admissible_set = set(admissible)
+            scores = self.score_actions(obs, admissible, info)
+            if scores:
+                return max(scores, key=scores.get)
             for candidate in candidates:
                 if candidate in admissible_set:
                     return candidate
