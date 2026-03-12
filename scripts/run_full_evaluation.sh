@@ -1,7 +1,25 @@
 #!/bin/bash
 # Full evaluation: categorize -> diagnostic tasks -> diagnostic tests -> full benchmark -> transfer analysis -> plots.
+# Usage: ./run_full_evaluation.sh [--api-key KEY] [--nb-steps N] [--nb-steps-diagn N] [--diagnostic-config PATH]
+# Env vars (API_KEY, NB_STEPS, etc.) override defaults; CLI args override env vars.
 
 set -e
+
+# Parse CLI args (override env vars)
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --api-key) API_KEY="$2"; shift 2 ;;
+        --api-key=*) API_KEY="${1#*=}"; shift ;;
+        --nb-steps) NB_STEPS="$2"; shift 2 ;;
+        --nb-steps=*) NB_STEPS="${1#*=}"; shift ;;
+        --nb-steps-diagn) NB_STEPS_DIAG="$2"; shift 2 ;;
+        --nb-steps-diagn=*) NB_STEPS_DIAG="${1#*=}"; shift ;;
+        --diagnostic-config) DIAGNOSTIC_CONFIG="$2"; shift 2 ;;
+        --diagnostic-config=*) DIAGNOSTIC_CONFIG="${1#*=}"; shift ;;
+        -h|--help) echo "Usage: $0 [--api-key KEY] [--nb-steps N] [--nb-steps-diagn N] [--diagnostic-config PATH]"; exit 0 ;;
+        *) echo "Unknown arg: $1 (use --help)"; exit 1 ;;
+    esac
+done
 
 [ -f .env ] && export $(cat .env | xargs)
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
