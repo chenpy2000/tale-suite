@@ -375,6 +375,12 @@ class ReactAgent(tales.Agent):
         scores = self.score_actions(obs, admissible, infos)
 
         stats = {
+            "prompt": format_messages_to_markdown(action_messages),
+            "response": action_response.text(),
+            "thinking": think_response.text(),
+            "nb_tokens_prompt": 0,
+            "nb_tokens_response": nb_tokens_act,
+            "nb_tokens_thinking": nb_tokens_cot,
             "thinking_prompt": format_messages_to_markdown(think_messages),
             "thinking_response": think_response.text(),
             "action_prompt": format_messages_to_markdown(action_messages),
