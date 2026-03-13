@@ -18,7 +18,11 @@ class HybridAgent(tales.Agent):
 
         # Store kwargs for component agents
         self.agent_kwargs = kwargs
-        self.uid = "hybrid-base"
+        self._uid = "hybrid-base"
+
+    @property
+    def uid(self):
+        return self._uid
 
     @property
     def params(self):

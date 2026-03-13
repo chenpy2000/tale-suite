@@ -25,7 +25,7 @@ class GraphVQVAEHybrid(HybridAgent):
             ("graph", GraphAgent, self.graph_weight),
             ("vqvae", LLMVQVAEAgent, self.vqvae_weight),
         ])
-        self.uid = f"graph-vqvae-g{self.graph_weight}-v{self.vqvae_weight}"
+        self._uid = f"graph-vqvae-g{self.graph_weight}-v{self.vqvae_weight}"
 
 
 # ============================================================================
@@ -44,7 +44,7 @@ class MemoryReActHybrid(HybridAgent):
             ("memory", MemoryAgent, self.memory_weight),
             ("react", ReactAgent, self.react_weight),
         ])
-        self.uid = f"memory-react-m{self.memory_weight}-r{self.react_weight}"
+        self._uid = f"memory-react-m{self.memory_weight}-r{self.react_weight}"
 
 
 # ============================================================================
@@ -74,7 +74,7 @@ class FullHybrid(HybridAgent):
             ("memory", MemoryAgent, self.memory_weight),
             ("react", ReactAgent, self.react_weight),
         ])
-        self.uid = f"full-hybrid-g{self.graph_weight}-v{self.vqvae_weight}-m{self.memory_weight}-r{self.react_weight}"
+        self._uid = f"full-hybrid-g{self.graph_weight}-v{self.vqvae_weight}-m{self.memory_weight}-r{self.react_weight}"
 
 
 # ============================================================================
@@ -95,10 +95,16 @@ def add_hybrid_args(parser):
     from agents.memory_agent import build_argparser as mem_parser
     from agents.react import build_argparser as react_parser
 
-    vqvae_parser(parser)
-    graph_parser(parser)
-    mem_parser(parser)
-    react_parser(parser)
+    # Avoid argparse conflicts when multiple components define the same flags (e.g., --seed).
+    old_conflict_handler = parser.conflict_handler
+    parser.conflict_handler = "resolve"
+    try:
+        vqvae_parser(parser)
+        graph_parser(parser)
+        mem_parser(parser)
+        react_parser(parser)
+    finally:
+        parser.conflict_handler = old_conflict_handler
     return parser
 
 

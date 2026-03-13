@@ -249,60 +249,57 @@ python benchmark.py --agent agents/graph_agent.py graph --envs $ENVS \
   --admissible-commands --nb-steps 100 --seed 20241001 \
   --conversation --key "your-tritonai-key" --llm api-gpt-oss-120b
 
-python benchmark.py --agent agents/llm_vqvae_agent.py llm-vqvae --envs $ENVS \
+python benchmark.py --agent agents/llm_vqvae_agent.py llm-vqvae --envs JerichoEnv905 JerichoEnvAcorncourt JerichoEnvAdvent JerichoEnvAdventureland JerichoEnvAfflicted \
+  ALFWorldLookAtObjInLightSeen TWCookingLevel10 ALFWorldLookAtObjInLightUnseen ScienceWorldBoil ScienceWorldMelt \
+  TWXSimonSays10 TWXCookingWorld TWXSimonSays100 TWXSimonSaysWithMemory10 TWXSimonSays50 \
+  ALFWorldPickAndPlaceSimpleSeen ALFWorldPickCleanThenPlaceInRecepSeen ALFWorldPickHeatThenPlaceInRecepSeen \
+  ALFWorldPickCoolThenPlaceInRecepSeen ALFWorldPickTwoObjAndPlaceSeen \
   --admissible-commands --nb-steps 100 --seed 20241001 \
   --api-key "your-tritonai-key" --vqvae-checkpoint latent-action/checkpoints/vqvae_checkpoint.pt --vqvae-top-k 5
 
-python benchmark.py --agent agents/memory_agent.py memory-agent --envs $ENVS \
-  --admissible-commands --nb-steps 100 --seed 20241001 \
-  --llm-api-key "your-tritonai-key"
+python benchmark.py --agent agents/memory_agent.py memory-agent --envs JerichoEnv905 JerichoEnvAcorncourt JerichoEnvAdvent JerichoEnvAdventureland JerichoEnvAfflicted \
+  ALFWorldLookAtObjInLightSeen TWCookingLevel10 ALFWorldLookAtObjInLightUnseen ScienceWorldBoil ScienceWorldMelt \
+  TWXSimonSays10 TWXCookingWorld TWXSimonSays100 TWXSimonSaysWithMemory10 TWXSimonSays50 \
+  ALFWorldPickAndPlaceSimpleSeen ALFWorldPickCleanThenPlaceInRecepSeen ALFWorldPickHeatThenPlaceInRecepSeen \
+  ALFWorldPickCoolThenPlaceInRecepSeen ALFWorldPickTwoObjAndPlaceSeen \
+  --admissible-commands \
+  --nb-steps 100 \
+  --seed 20241001 \
+  --compress-every 5 \
+  --use-llm-policy \
+  --use-llm-parser \
+  --use-llm-compressor \
+  --llm-model api-gpt-oss-120b \
+  --llm-api-url https://tritonai-api.ucsd.edu/v1/chat/completions \
+  --llm-api-key-env TRITON_API_KEY
 ```
 
 ### 5. Hybrid agents (standard weights)
 
-Runs graph-vqvae (graph + VQ-VAE), memory-react (memory + ReAct), and full-hybrid (all four components). Requires VQ-VAE checkpoint and API key. Each hybrid calls `act()` on every component (full LLM reasoning) and uses weighted voting.
+Runs graph-vqvae (graph + VQ-VAE), memory-react (memory + ReAct), and full-hybrid (all four components). Requires VQ-VAE checkpoint and API key.
 
 ```bash
-ENVS=$(python -c "import json; print(' '.join(json.load(open('data/evaluation_subset.json'))['envs']))")
 VQVAE="latent-action/checkpoints/vqvae_checkpoint.pt"
-COMMON="--admissible-commands --seed 20241001 --conversation --llm api-gpt-oss-120b"
+COMMON="--admissible-commands --seed 20241001"
 
-# Graph + VQ-VAE (full benchmark)
 python benchmark.py --agent agents/hybrid_agents.py graph-vqvae --envs $ENVS \
   --api-key "your-tritonai-key" --vqvae-checkpoint $VQVAE \
   --graph-weight 0.6 --vqvae-weight 0.4 $COMMON --nb-steps 100
 
-# Memory + ReAct
 python benchmark.py --agent agents/hybrid_agents.py memory-react --envs $ENVS \
   --api-key "your-tritonai-key" --memory-weight 0.5 --react-weight 0.5 \
-  $COMMON --nb-steps 100
+  --conversation $COMMON --nb-steps 100
 
-# Full hybrid (all four: graph, vqvae, memory, react)
-python benchmark.py --agent agents/hybrid_agents.py full-hybrid --envs $ENVS \
-  --api-key "your-tritonai-key" --vqvae-checkpoint $VQVAE \
+python benchmark.py --agent agents/hybrid_agents.py full-hybrid --envs JerichoEnv905 JerichoEnvAcorncourt JerichoEnvAdvent JerichoEnvAdventureland JerichoEnvAfflicted \
+  ALFWorldLookAtObjInLightSeen TWCookingLevel10 ALFWorldLookAtObjInLightUnseen ScienceWorldBoil ScienceWorldMelt \
+  TWXSimonSays10 TWXCookingWorld TWXSimonSays100 TWXSimonSaysWithMemory10 TWXSimonSays50 \
+  ALFWorldPickAndPlaceSimpleSeen ALFWorldPickCleanThenPlaceInRecepSeen ALFWorldPickHeatThenPlaceInRecepSeen \
+  ALFWorldPickCoolThenPlaceInRecepSeen ALFWorldPickTwoObjAndPlaceSeen \
+  --api-key "your-tritonai-key" --vqvae-checkpoint latent-action/checkpoints/vqvae_checkpoint.pt \
   --graph-weight 0.3 --vqvae-weight 0.3 --memory-weight 0.2 --react-weight 0.2 \
-  $COMMON --nb-steps 100
-```
+  --conversation --admissible-commands --seed 20241001 --nb-steps 100
 
-**Diagnostic only** (quick skill profiling):
-
-```bash
-python benchmark.py --agent agents/hybrid_agents.py graph-vqvae \
-  --api-key "your-tritonai-key" --vqvae-checkpoint $VQVAE \
-  --graph-weight 0.6 --vqvae-weight 0.4 $COMMON \
-  --diagnostic-tests data/diagnostic_tasks.json --nb-steps 50 \
-  --output-metrics logs/hybrid_gv_diagnostic.json
-
-python benchmark.py --agent agents/hybrid_agents.py memory-react \
-  --api-key "your-tritonai-key" --memory-weight 0.5 --react-weight 0.5 \
-  $COMMON --diagnostic-tests data/diagnostic_tasks.json --nb-steps 50 \
-  --output-metrics logs/hybrid_mr_diagnostic.json
-
-python benchmark.py --agent agents/hybrid_agents.py full-hybrid \
-  --api-key "your-tritonai-key" --vqvae-checkpoint $VQVAE \
-  --graph-weight 0.3 --vqvae-weight 0.3 --memory-weight 0.2 --react-weight 0.2 \
-  $COMMON --diagnostic-tests data/diagnostic_tasks.json --nb-steps 50 \
-  --output-metrics logs/hybrid_full_diagnostic.json
+  python benchmark.py --agent agents/memory_agent.py memory-agent --envs JerichoEnv905 JerichoEnvAcorncourt JerichoEnvAdvent JerichoEnvAdventureland JerichoEnvAfflicted   ALFWorldLookAtObjInLightSeen TWCookingLevel10 ALFWorldLookAtObjInLightUnseen ScienceWorldBoil ScienceWorldMelt   TWXSimonSays10 TWXCookingWorld TWXSimonSays100 TWXSimonSaysWithMemory10 TWXSimonSays50   ALFWorldPickAndPlaceSimpleSeen ALFWorldPickCleanThenPlaceInRecepSeen ALFWorldPickHeatThenPlaceInRecepSeen   ALFWorldPickCoolThenPlaceInRecepSeen ALFWorldPickTwoObjAndPlaceSeen   --admissible-commands   --nb-steps 100   --seed 20241001   --compress-every 5   --use-llm-policy   --use-llm-parser   --use-llm-compressor   --llm-model api-gpt-oss-120b   --llm-api-url https://tritonai-api.ucsd.edu/v1/chat/completions   --llm-api-key-env "your-tritonai-key"
 ```
 
 ### 6. Skill transfer analysis

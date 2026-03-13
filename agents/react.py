@@ -1,4 +1,5 @@
 import argparse
+import os
 import re
 
 import llm
@@ -19,6 +20,27 @@ from tales.utils import (
     merge_messages,
     messages2conversation,
 )
+
+
+
+def _maybe_configure_openai_env(kwargs):
+    api_url = kwargs.get("llm_api_url") or kwargs.get("api_url")
+    api_key = kwargs.get("llm_api_key") or kwargs.get("api_key") or kwargs.get("key")
+    api_key_env = kwargs.get("llm_api_key_env")
+    if api_key_env and not api_key:
+        api_key = os.environ.get(api_key_env)
+
+    if api_url:
+        base = api_url.rstrip("/")
+        if base.endswith("/v1/chat/completions"):
+            base = base[: -len("/v1/chat/completions")]
+        if not base.endswith("/v1"):
+            base = base + "/v1"
+        os.environ["OPENAI_BASE_URL"] = base
+        os.environ["OPENAI_API_BASE"] = base
+
+    if api_key:
+        os.environ["OPENAI_API_KEY"] = api_key
 
 THINK_SYSTEM_PROMPT = (
     "You are playing a text-based game and your goal is to finish it with the highest score.\n"
@@ -57,6 +79,7 @@ SCORE_SYSTEM_PROMPT = (
 
 class ReactAgent(tales.Agent):
     def __init__(self, *args, **kwargs):
+        _maybe_configure_openai_env(kwargs)
         self.llm = kwargs["llm"]
         self.model = llm.get_model(self.llm)
         self.token_counter = get_token_counter(self.model)
