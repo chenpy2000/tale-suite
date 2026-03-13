@@ -14,7 +14,7 @@ export TRITON_API_KEY="<your_key_here>"
 
 Default Triton endpoint/model used by this agent:
 - URL: `https://tritonai-api.ucsd.edu/v1/chat/completions`
-- Model: `api-llama-4-scout`
+- Model: `api-gpt-oss-120b`
 
 ## 2) Minimal No-LLM Run (Structured Memory)
 
@@ -61,7 +61,7 @@ python benchmark.py \
   --compress-every 8 \
   --admissible-commands \
   --use-llm-policy \
-  --llm-model api-llama-4-scout \
+  --llm-model api-gpt-oss-120b \
   --llm-api-url https://tritonai-api.ucsd.edu/v1/chat/completions \
   --llm-api-key-env TRITON_API_KEY
 ```
@@ -80,7 +80,7 @@ python benchmark.py \
   --admissible-commands \
   --use-llm-parser \
   --use-llm-compressor \
-  --llm-model api-llama-4-scout \
+  --llm-model api-gpt-oss-120b \
   --llm-api-url https://tritonai-api.ucsd.edu/v1/chat/completions \
   --llm-api-key-env TRITON_API_KEY
 ```
@@ -100,7 +100,7 @@ python benchmark.py \
   --use-llm-policy \
   --use-llm-parser \
   --use-llm-compressor \
-  --llm-model api-llama-4-scout \
+  --llm-model api-gpt-oss-120b \
   --llm-api-url https://tritonai-api.ucsd.edu/v1/chat/completions \
   --llm-api-key-env TRITON_API_KEY
 ```
@@ -149,7 +149,7 @@ python scripts/memory_benchmark_variants.py \
   --use-llm-policy \
   --use-llm-parser \
   --use-llm-compressor \
-  --llm-model api-llama-4-scout \
+  --llm-model api-gpt-oss-120b \
   --llm-api-key-env TRITON_API_KEY
 ```
 
