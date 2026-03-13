@@ -168,67 +168,67 @@ class ReactAgent(tales.Agent):
         )
 
     def act(self, obs, reward, done, infos):
-    self._score_cache = None
-    admissible = list(infos.get("admissible_commands") or []) if isinstance(infos, dict) else []
-    if not admissible:
-        return "look", {"nb_tokens": 0, "action_scores": {}}
+        self._score_cache = None
+        admissible = list(infos.get("admissible_commands") or []) if isinstance(infos, dict) else []
+        if not admissible:
+            return "look", {"nb_tokens": 0, "action_scores": {}}
 
-    question = "// Based on the above information (history), what is the best action to take? Let's think step by step.\n"
-    messages = self.build_messages(obs, question, [])
-    response = self._llm_call_from_messages(
-        messages,
-        temperature=self.cot_temp,
-        max_tokens=self.cot_max_tokens,
-        seed=self.seed,
-        stream=False,
-    )
+        question = "// Based on the above information (history), what is the best action to take? Let's think step by step.\n"
+        messages = self.build_messages(obs, question, [])
+        response = self._llm_call_from_messages(
+            messages,
+            temperature=self.cot_temp,
+            max_tokens=self.cot_max_tokens,
+            seed=self.seed,
+            stream=False,
+        )
 
-    answer = response.text().strip()
-    nb_tokens_cot = self.token_counter(messages=messages, text=response.text())
+        answer = response.text().strip()
+        nb_tokens_cot = self.token_counter(messages=messages, text=response.text())
 
-    prompt = "// Provide your chosen action on a single line while respecting the desired format.\n> "
-    messages = self.build_messages(obs, prompt, [(question, f"{answer}\n")])
-    response = self._llm_call_from_messages(
-        messages,
-        temperature=self.act_temp,
-        max_tokens=100,
-        seed=self.seed,
-        stream=False,
-    )
+        prompt = "// Provide your chosen action on a single line while respecting the desired format.\n> "
+        messages = self.build_messages(obs, prompt, [(question, f"{answer}\n")])
+        response = self._llm_call_from_messages(
+            messages,
+            temperature=self.act_temp,
+            max_tokens=100,
+            seed=self.seed,
+            stream=False,
+        )
 
-    action = response.text().strip()
-    admissible_set = {a.lower(): a for a in admissible}
+        action = response.text().strip()
+        admissible_set = {a.lower(): a for a in admissible}
 
-    if action.lower() not in admissible_set:
-        for cmd in admissible:
-            if (
-                cmd.lower() == action.lower()
-                or action.lower() in cmd.lower()
-                or cmd.lower() in action.lower()
-            ):
-                action = cmd
-                break
-        else:
-            scores = self.score_actions(obs, admissible, infos)
-            if scores:
-                action = max(scores, key=scores.get)
+        if action.lower() not in admissible_set:
+            for cmd in admissible:
+                if (
+                    cmd.lower() == action.lower()
+                    or action.lower() in cmd.lower()
+                    or cmd.lower() in action.lower()
+                ):
+                    action = cmd
+                    break
             else:
-                action = str(self.rng.choice(admissible))
-    else:
-        action = admissible_set[action.lower()]
+                scores = self.score_actions(obs, admissible, infos)
+                if scores:
+                    action = max(scores, key=scores.get)
+                else:
+                    action = str(self.rng.choice(admissible))
+        else:
+            action = admissible_set[action.lower()]
 
-    self.history.append((f"{obs}\n> ", f"{action}\n"))
-    nb_tokens_act = self.token_counter(messages=messages, text=response.text())
-    scores = self.score_actions(obs, admissible, infos)
+        self.history.append((f"{obs}\n> ", f"{action}\n"))
+        nb_tokens_act = self.token_counter(messages=messages, text=response.text())
+        scores = self.score_actions(obs, admissible, infos)
 
-    stats = {
-        "prompt": format_messages_to_markdown(messages),
-        "response": response.text(),
-        "nb_tokens": nb_tokens_cot + nb_tokens_act,
-        "action_scores": scores,
-    }
+        stats = {
+            "prompt": format_messages_to_markdown(messages),
+            "response": response.text(),
+            "nb_tokens": nb_tokens_cot + nb_tokens_act,
+            "action_scores": scores,
+        }
 
-    return action, stats
+        return action, stats
 
     def _format_admissible_commands(self, admissible):
         if not admissible:
