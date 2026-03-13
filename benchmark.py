@@ -188,11 +188,14 @@ def evaluate(agent, env_name, args, seed=None):
 
             if step in checkpoint_steps and step not in score_checkpoints:
                 score_checkpoints[step] = {
-                    "score": score,
-                    "max_score": max_score,
-                    "normalized_score": norm_score,
+                    # Record both current and best-so-far scores at this checkpoint.
+                    "current_score": score,
+                    "current_normalized_score": norm_score,
+                    "score": highscore,
+                    "normalized_score": norm_highscore,
                     "highscore": highscore,
                     "normalized_highscore": norm_highscore,
+                    "max_score": max_score,
                     "moves": moves,
                 }
 

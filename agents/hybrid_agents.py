@@ -57,10 +57,10 @@ class FullHybrid(HybridAgent):
 
     def __init__(
         self,
-        graph_weight=0.3,
+        graph_weight=0.5,
         vqvae_weight=0.3,
-        memory_weight=0.2,
-        react_weight=0.2,
+        memory_weight=0.1,
+        react_weight=0.1,
         **kwargs,
     ):
         super().__init__(**kwargs)
