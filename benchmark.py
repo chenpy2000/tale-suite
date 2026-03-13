@@ -134,6 +134,8 @@ def evaluate(agent, env_name, args, seed=None):
     score = 0
     done = False
     results = []
+    score_checkpoints = {}
+    checkpoint_steps = {5, 10, 50, 100, 150, 200}
 
     wandb_run.log(
         {
@@ -183,6 +185,16 @@ def evaluate(agent, env_name, args, seed=None):
             norm_score = score / max_score
             highscore = max(score, highscore)
             norm_highscore = highscore / max_score
+
+            if step in checkpoint_steps and step not in score_checkpoints:
+                score_checkpoints[step] = {
+                    "score": score,
+                    "max_score": max_score,
+                    "normalized_score": norm_score,
+                    "highscore": highscore,
+                    "normalized_highscore": norm_highscore,
+                    "moves": moves,
+                }
 
             if (
                 args.admissible_commands
@@ -329,6 +341,7 @@ def evaluate(agent, env_name, args, seed=None):
         "env_params": env_params,
         "wandb_run_id": wandb_run.id,
         "wandb_url": wandb_run.url,
+        "score_checkpoints": score_checkpoints,
         **stats,
         **wandb_stats,
     }
