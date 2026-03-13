@@ -137,6 +137,15 @@ def evaluate(agent, env_name, args, seed=None):
     score_checkpoints = {}
     checkpoint_steps = {5, 10, 50, 100, 150, 200}
 
+    # fmt: off
+    columns = [
+        "Step", "Score", "Max Score", "Normalized Score", "Moves",
+        "Observation", "Action", "Feedback",
+        "Prompt", "Response", "Thinking",
+        "Token Usage", "Prompt Tokens", "Response Tokens", "Thinking Tokens",
+    ]
+    # fmt: on
+
     wandb_run.log(
         {
             "episode/moves": moves,
@@ -186,18 +195,6 @@ def evaluate(agent, env_name, args, seed=None):
             highscore = max(score, highscore)
             norm_highscore = highscore / max_score
 
-            if step in checkpoint_steps and step not in score_checkpoints:
-                score_checkpoints[step] = {
-                    # Record both current and best-so-far scores at this checkpoint.
-                    "current_score": score,
-                    "current_normalized_score": norm_score,
-                    "score": highscore,
-                    "normalized_score": norm_highscore,
-                    "highscore": highscore,
-                    "normalized_highscore": norm_highscore,
-                    "max_score": max_score,
-                    "moves": moves,
-                }
 
             if (
                 args.admissible_commands
@@ -231,6 +228,22 @@ def evaluate(agent, env_name, args, seed=None):
                 total_tokens, prompt_tokens, response_tokens, thinking_tokens,
             ])
             # fmt: on
+
+            if step in checkpoint_steps and step not in score_checkpoints:
+                tmp_df = pd.DataFrame(results, columns=columns)
+                score_checkpoints[step] = {
+                    # Record both current and best-so-far scores at this checkpoint.
+                    "current_score": score,
+                    "current_normalized_score": norm_score,
+                    "score": highscore,
+                    "normalized_score": norm_highscore,
+                    "highscore": highscore,
+                    "normalized_highscore": norm_highscore,
+                    "max_score": max_score,
+                    "moves": moves,
+                    "elapsed_seconds": time.time() - start_time,
+                    "doom_loop_count": compute_doom_loop_count(tmp_df),
+                }
 
             if not done:
                 log.debug(obs)
@@ -294,14 +307,6 @@ def evaluate(agent, env_name, args, seed=None):
         "duration": time.time() - start_time,
     }
 
-    # fmt: off
-    columns = [
-        "Step", "Score", "Max Score", "Normalized Score", "Moves",
-        "Observation", "Action", "Feedback",
-        "Prompt", "Response", "Thinking",
-        "Token Usage", "Prompt Tokens", "Response Tokens", "Thinking Tokens",
-    ]
-    # fmt: on
     df = pd.DataFrame(results, columns=columns)
 
     # Compute operational efficiency and doom loop metrics
