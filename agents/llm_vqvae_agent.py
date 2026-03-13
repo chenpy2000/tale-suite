@@ -2,6 +2,7 @@
 import argparse
 import json
 import logging
+import os
 import re
 import sys
 import urllib.request
@@ -130,7 +131,9 @@ class LLMVQVAEAgent(tales.Agent):
         debug_agent=False,
         **kwargs,
     ):
-        self.api_key = api_key
+        self.api_key = api_key or os.environ.get("TRITONAI_API_KEY") or os.environ.get("TRITON_API_KEY")
+        if not self.api_key:
+            print("[llm-vqvae] WARNING: No API key (--api-key or TRITONAI_API_KEY). LLM calls will fail; using VQ-VAE only.")
         self.debug_agent = bool(debug_agent)
         self.vqvae_top_k = int(vqvae_top_k)
         self.nb_steps = int(agent_step_budget)
@@ -450,7 +453,10 @@ class LLMVQVAEAgent(tales.Agent):
         if not admissible:
             return {}, None
         last_obs = self.obs_h[-(self.w - 1) :] + [obs_str]
-        last_act = self.act_h[-(self.w - 1) :] + [PAD]
+        # Match training: encoder saw real actions at all positions. Use last known action
+        # at final position instead of PAD so latent matches what model was trained on.
+        last_known = self.act_h[-1] if self.act_h else PAD
+        last_act = self.act_h[-(self.w - 1) :] + [last_known]
         obs_seq = ([""] * (self.w - len(last_obs)) + last_obs)[-self.w :]
         act_seq = ([PAD] * (self.w - len(last_act)) + last_act)[-self.w :]
         obs_seq = [normalize_text(o) for o in obs_seq]
@@ -612,7 +618,7 @@ class LLMVQVAEAgent(tales.Agent):
 def build_argparser(parser=None):
     parser = parser or argparse.ArgumentParser()
     g = parser.add_argument_group("LLM+VQ-VAE agent")
-    g.add_argument("--api-key", required=True, help="TritonAI API key")
+    g.add_argument("--api-key", default=None, help="TritonAI API key (or TRITONAI_API_KEY / TRITON_API_KEY env)")
     g.add_argument("--api-url", default="https://tritonai-api.ucsd.edu")
     g.add_argument("--model", default="api-gpt-oss-120b")
     g.add_argument("--vqvae-checkpoint", default="latent-action/checkpoints/vqvae_checkpoint.pt")
