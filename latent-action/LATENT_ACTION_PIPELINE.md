@@ -37,10 +37,10 @@ Output: `checkpoints/vqvae_checkpoint.pt` — the trained model plus the action 
 **4. Benchmark** — We run the LLM+VQ-VAE agent on the games. For each step:
 - The game gives an observation and a list of valid commands.
 - We build a short history of recent (obs, action) pairs.
-- The LLM is asked to suggest one action from the list.
 - The VQ-VAE scores each valid action (how likely it would predict that action given the history).
-- We pick the highest-scoring action, with a bonus if it matches the LLM.
-- We send that action to the game and repeat.
+- We show the LLM the observation, valid commands, and the top VQ-VAE suggestions as a hint.
+- **The LLM decides** which action to take (it may follow or ignore the VQ-VAE suggestions).
+- We send the LLM's choice to the game and repeat.
 
 This step uses the LLM API (TritonAI), so it costs money. Steps 1–3 are free.
 
@@ -52,7 +52,7 @@ A VQ-VAE (Vector Quantized Variational Autoencoder) has three parts:
 2. **Quantizer** — Maps that vector to the nearest entry in a fixed "codebook" (e.g. 64 or 128 vectors). This forces the model to use a discrete set of representations.
 3. **Decoder** — Takes the quantized vector and predicts the next action (or reconstructs the sequence).
 
-By training it to reconstruct actions, the model learns which action sequences tend to go together. At runtime, we use the decoder's prediction scores to rank admissible actions—the one it would have predicted gets the highest score.
+By training it to reconstruct actions, the model learns which action sequences tend to go together. At runtime, we use the decoder's prediction scores to suggest top actions to the LLM as an advisory hint.
 
 ### Summary flow
 
@@ -83,7 +83,7 @@ cd latent-action
 # Noisy walkthrough — uses game walkthroughs when available, adds 20% noise
 python collect_data.py --agent agents/collectors.py --agent-name noisy-walkthrough \
   --tasks alfworld jericho scienceworld textworld textworld_express \
-  --episodes-per-game 10 \
+  --episodes-per-game 10 --runs-per-env 3 \
   --output-dir data/trajectories/noisy_walkthrough \
   --noise-rate 0.2 \
   --nb-steps 200
@@ -91,7 +91,7 @@ python collect_data.py --agent agents/collectors.py --agent-name noisy-walkthrou
 # Diverse exploration — multiple strategies, works for all games
 python collect_data.py --agent agents/collectors.py --agent-name diverse-collector \
   --tasks alfworld jericho scienceworld textworld textworld_express \
-  --episodes-per-game 10 \
+  --episodes-per-game 10 --runs-per-env 3 \
   --output-dir data/trajectories/diverse \
   --nb-steps 200
 ```
@@ -104,7 +104,7 @@ Reattach later with `tmux attach -t collect` (or `screen -r collect`). Without t
 python clean_trajectories.py
 ```
 
-Optional stricter filters:
+Defaults (min-length 3, min-reward -20) work for short nb-steps runs. For longer runs, use stricter filters:
 
 ```bash
 python clean_trajectories.py --min-length 15 --min-reward -5 --max-repetition-rate 0.4
@@ -120,6 +120,14 @@ Checkpoint is saved to `latent-action/checkpoints/vqvae_checkpoint.pt`.
 
 To speed up training, run this step on Google Colab with a T4 GPU—see "Training on Colab" below.
 
+**Optional: Analyze checkpoint**
+
+```bash
+python analyze_options.py
+```
+
+Produces `option_analysis.txt` (per-option action sequences, rewards, codebook utilization) plus t-SNE and histogram plots in the current dir. Use `--output-dir analysis` to put outputs in `analysis/`, or `--max-windows 500` for a quicker run.
+
 ### Step 4: Benchmark
 
 From the repo root. You need an API key:
@@ -127,12 +135,12 @@ From the repo root. You need an API key:
 ```bash
 cd ..
 python benchmark.py --agent agents/llm_vqvae_agent.py llm-vqvae \
-  --api-key YOUR_API_KEY \
+  --api-key sk-jtESe5Ch5ymQNgwUfR3afQ \
   --api-url https://tritonai-api.ucsd.edu \
-  --model api-llama-4-scout \
+  --model api-gpt-oss-120b \
   --vqvae-checkpoint latent-action/checkpoints/vqvae_checkpoint.pt \
   --admissible-commands \
-  --nb-steps 280
+  --nb-steps 10
 ```
 
 122 envs × 280 steps ≈ 34,160 API calls ≈ $35 at typical TritonAI pricing. Check the [model hub](https://tritonai-api.ucsd.edu/ui/model_hub_table/) for current rates.
@@ -150,24 +158,26 @@ Quick end-to-end test. ~30–60 minutes. Uses only textworld and textworld_expre
 ```bash
 cd latent-action
 
-python collect_data.py --agent agents/collectors.py --agent-name noisy-walkthrough \
-  --tasks textworld textworld_express \
-  --episodes-per-game 3 \
-  --output-dir data/trajectories/noisy_walkthrough \
-  --noise-rate 0.2 \
-  --nb-steps 100
-
 python collect_data.py --agent agents/collectors.py --agent-name diverse-collector \
-  --tasks textworld textworld_express \
-  --episodes-per-game 3 \
+  --tasks textworld \
+  --episodes-per-game 20 \
+  --runs-per-env 5 \
   --output-dir data/trajectories/diverse \
-  --nb-steps 100
+  --nb-steps 300
+
+python collect_data.py --agent agents/collectors.py --agent-name noisy-walkthrough \
+  --tasks textworld \
+  --episodes-per-game 30 \
+  --runs-per-env 5 \
+  --output-dir data/trajectories/noisy_walkthrough \
+  --noise-rate 0.15 \
+  --nb-steps 300
 ```
 
 ### Step 2: Clean
 
 ```bash
-python clean_trajectories.py --min-length 5 --min-reward -20 --max-repetition-rate 0.5
+python clean_trajectories.py
 ```
 
 ### Step 3: Train
@@ -181,14 +191,51 @@ python train_vqvae.py --epochs 10 --num-codes 64 --window-size 5 --balanced
 ```bash
 cd ..
 python benchmark.py --agent agents/llm_vqvae_agent.py llm-vqvae \
-  --api-key YOUR_API_KEY \
+  --api-key sk-jtESe5Ch5ymQNgwUfR3afQ \
   --api-url https://tritonai-api.ucsd.edu \
-  --model api-llama-4-scout \
+  --model api-gpt-oss-120b \
   --vqvae-checkpoint latent-action/checkpoints/vqvae_checkpoint.pt \
   --admissible-commands \
-  --envs TWCookingLevel1 TWCookingLevel2 \
-  --nb-steps 50
+  --envs textworld \
+  --nb-steps 10
 ```
+
+---
+
+## Textworld-only pipeline (after collect + clean)
+
+After collecting and cleaning trajectories for textworld, run:
+
+### Step 3: Train (textworld)
+
+```bash
+cd latent-action
+
+# Standard training (CPU, ~30–60 min)
+python train_vqvae.py --epochs 30 --num-codes 64 --window-size 10 --balanced --commitment-schedule
+
+# Or faster on GPU (Colab): see "Training on Colab" below
+```
+
+Ensure `--trajectories-dir` points to cleaned data (default: `data/trajectories_cleaned`). Use `--window-size` matching your data (10 or 15 recommended for textworld).
+
+### Step 4: Benchmark (textworld)
+
+From the repo root:
+
+```bash
+cd ..
+python benchmark.py --agent agents/llm_vqvae_agent.py llm-vqvae \
+  --envs textworld \
+  --vqvae-checkpoint latent-action/checkpoints/vqvae_checkpoint.pt \
+  --api-key sk-jtESe5Ch5ymQNgwUfR3afQ  \
+  --api-url https://tritonai-api.ucsd.edu \
+  --model api-gpt-oss-120b \
+  --admissible-commands \
+  --nb-steps 200
+```
+
+Use `--window-size 10` (or 15) if your checkpoint was trained with that value. Reduce `--nb-steps` (e.g. 50) for cheaper runs.
 
 ---
 
@@ -238,10 +285,10 @@ python collect_data.py --tasks alfworld jericho scienceworld textworld textworld
 ## Agent options
 
 - `--api-key` — Required. Your TritonAI API key.
-- `--admissible-commands` — Required for llm-vqvae. The agent scores actions from the game's valid command list. The benchmark auto-enables this when you use llm-vqvae.
+- `--admissible-commands` — Required for llm-vqvae. The agent uses the game's valid command list. The benchmark auto-enables this when you use llm-vqvae.
 - `--api-url` — Default: https://tritonai-api.ucsd.edu
 - `--model` — Default: api-llama-4-scout. See https://tritonai-api.ucsd.edu/ui/model_hub_table/
-- `--llm-weight` — Weight for LLM suggestion when ranking actions (default: 0.3)
+- `--vqvae-top-k` — Number of top VQ-VAE suggestions to show the LLM as a hint (default: 5). The LLM is in control; VQ-VAE advises.
 
 ---
 

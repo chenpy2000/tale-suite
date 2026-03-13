@@ -24,7 +24,7 @@ from tales.utils import NumpyEncoder
 os.environ["WANDB_MODE"] = "disabled"
 
 
-def evaluate(agent, env_name, args):
+def evaluate(agent, env_name, args, seed=None):
     env_params = (
         f"a{int(args.admissible_commands)}_s{args.game_seed}_steps{args.nb_steps}"
     )
@@ -47,6 +47,7 @@ def evaluate(agent, env_name, args):
         if not args.force_failed or summary["status"] == "finished":
             log.info(colored("Skipped, already done.", "yellow"))
             log.removeHandler(fh)
+            fh.close()
             return summary
 
     run_name = f"{env_name} - {agent.uid}"
@@ -60,6 +61,7 @@ def evaluate(agent, env_name, args):
             if wandb_run.state in ("finished", "running"):
                 log.info(colored("Skipped, already exists.", "yellow"))
                 log.removeHandler(fh)
+                fh.close()
                 summary = {
                     "status": wandb_run.state,
                     "env_name": env_name,
@@ -107,7 +109,8 @@ def evaluate(agent, env_name, args):
     log.debug(f"Playing {env_name}")
 
     start_time = time.time()
-    obs, info = env.reset(seed=args.game_seed)
+    reset_seed = seed if seed is not None else args.game_seed
+    obs, info = env.reset(seed=reset_seed)
 
     agent = agent.new()
     agent.reset(obs, info, env_name)
@@ -214,6 +217,8 @@ def evaluate(agent, env_name, args):
                 log.debug(obs)
 
             if done:
+                # Let agent record final step and save (e.g. trajectory collectors)
+                action, stats = agent.act(obs, score, done, info)
                 if info["won"]:
                     nb_wins += 1
                     if highscore == max_score:
@@ -231,6 +236,10 @@ def evaluate(agent, env_name, args):
                 nb_resets += 1
 
                 log.debug(f"{obs}")
+
+        # Episodes truncated by step limit never get done=True; notify agent
+        if not done and hasattr(agent, "episode_truncated"):
+            agent.episode_truncated(obs, info)
 
         status = "finished"
 
@@ -330,7 +339,105 @@ def evaluate(agent, env_name, args):
     wandb_run.finish(exit_code=int(status != "finished"))
 
     log.removeHandler(fh)
+    fh.close()
     return summary
+
+
+def _run_diagnostic_task(agent, task_entry, args, skill):
+    """Run one diagnostic task. Returns score(s) and metadata."""
+    task_name = task_entry["task"]
+    difficulty = task_entry.get("difficulty", "medium")
+    episodes = task_entry.get("episodes", 1)
+
+    if episodes == 1:
+        summary = evaluate(agent, task_name, args)
+        score = summary.get("norm_score", summary.get("highscore", 0) / max(summary.get("max_score", 1), 1))
+        return {"task": task_name, "score": score, "difficulty": difficulty}
+    else:
+        episode_scores = []
+        for ep in range(episodes):
+            summary = evaluate(agent, task_name, args, seed=ep)
+            norm = summary.get("norm_score", summary.get("highscore", 0) / max(summary.get("max_score", 1), 1))
+            episode_scores.append(round(norm, 4))
+        avg_first = sum(episode_scores[:2]) / 2 if len(episode_scores) >= 2 else episode_scores[0]
+        avg_last = sum(episode_scores[-2:]) / 2 if len(episode_scores) >= 2 else episode_scores[-1]
+        improvement = (avg_last - avg_first) / avg_first if avg_first > 0 else 0
+        return {
+            "task": task_name,
+            "episode_scores": episode_scores,
+            "improvement": round(improvement, 4),
+            "difficulty": difficulty,
+        }
+
+
+def diagnostic_benchmark(agent, args):
+    """Run diagnostic evaluation from diagnostic_tasks.json."""
+    tasks_path = args.diagnostic_tasks_path
+    path = pjoin(os.getcwd(), tasks_path) if not os.path.isabs(tasks_path) else tasks_path
+    if not os.path.exists(path):
+        log.critical(f"Diagnostic tasks file not found: {path}")
+        sys.exit(1)
+
+    with open(path) as f:
+        diagnostic_tasks = json.load(f)
+
+    skills_to_run = [args.diagnostic_skill] if args.diagnostic_skill != "all" else list(diagnostic_tasks.keys())
+    log.critical(f"Diagnostic evaluation: skills={skills_to_run}")
+
+    results = {}
+    skill_profile = {}
+
+    for skill in skills_to_run:
+        if skill not in diagnostic_tasks:
+            continue
+        task_entries = diagnostic_tasks[skill]
+        skill_results = []
+        for entry in tqdm(task_entries, desc=f"  {skill}", unit="task", leave=False):
+            out = _run_diagnostic_task(agent, entry, args, skill)
+            skill_results.append(out)
+
+        if skill == "inductive" and skill_results and "episode_scores" in skill_results[0]:
+            scores = [r.get("score", sum(r["episode_scores"]) / len(r["episode_scores"])) for r in skill_results]
+            for r in skill_results:
+                if "episode_scores" in r:
+                    r["score"] = sum(r["episode_scores"]) / len(r["episode_scores"])
+            avg_score = sum(r["score"] for r in skill_results) / len(skill_results)
+            improvements = [r["improvement"] for r in skill_results if "improvement" in r]
+            improvement_rate = sum(improvements) / len(improvements) if improvements else 0
+            results[skill] = {
+                "average_score": round(avg_score, 4),
+                "improvement_rate": round(improvement_rate, 4),
+                "tasks": skill_results,
+            }
+            skill_profile[skill] = round(avg_score, 4)
+        else:
+            scores = [r["score"] for r in skill_results]
+            avg_score = sum(scores) / len(scores) if scores else 0
+            results[skill] = {
+                "average_score": round(avg_score, 4),
+                "tasks": skill_results,
+            }
+            skill_profile[skill] = round(avg_score, 4)
+
+    agent_name = getattr(agent, "uid", args.subcommand or "unknown")
+    output = {
+        "agent": agent_name,
+        "diagnostic_results": results,
+        "skill_profile": skill_profile,
+    }
+
+    out_path = args.output_metrics
+    if not out_path:
+        out_path = pjoin(args.log_dir, f"{agent_name.replace('/', '-')}_diagnostic.json")
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+    with open(out_path, "w") as f:
+        json.dump(output, f, indent=2, cls=NumpyEncoder)
+    log.critical(colored(f"Diagnostic metrics written to {out_path}", "magenta"))
+
+    for skill, data in results.items():
+        avg = data["average_score"]
+        extra = f" improvement={data.get('improvement_rate', 'n/a')}" if "improvement_rate" in data else ""
+        log.critical(f"  {skill}: avg_score={avg:.2%}{extra}")
 
 
 def benchmark(agent, args):
@@ -484,6 +591,19 @@ def parse_args():
         general_group.add_argument("--log-dir", default="logs",
                             help="Folder where to save verbose log information.")
 
+        # Diagnostic evaluation (skill-specific tasks from diagnostic_tasks.json)
+        general_group.add_argument("--diagnostic-tests", dest="diagnostic_tasks_path", nargs="?",
+                            const="data/diagnostic_tasks.json", default=None,
+                            metavar="PATH",
+                            help="Run diagnostic evaluation. Path to diagnostic_tasks.json (default: data/diagnostic_tasks.json).")
+        general_group.add_argument("--diagnostic-tasks", type=str, default=None, metavar="PATH",
+                            help="Path to diagnostic_tasks.json (default: data/diagnostic_tasks.json).")
+        general_group.add_argument("--diagnostic-skill", choices=["spatial", "deductive", "inductive", "grounded", "all"],
+                            default="all",
+                            help="Skill category to evaluate in diagnostic mode (default: all).")
+        general_group.add_argument("--output-metrics", type=str, default=None,
+                            help="Path to write diagnostic metrics JSON (default: logs/<agent>_diagnostic.json).")
+
         general_group.add_argument("--wandb", action="store_true",
                             help="Log to wandb")
         general_group.add_argument("-ff", "--force-all", action="store_true",
@@ -536,8 +656,8 @@ def main():
     agent = Agent(**vars(args))
     agent.new = partial(Agent, **vars(args))
 
-    if args.subcommand == "llm-vqvae" and not args.admissible_commands:
-        log.warning("llm-vqvae needs admissible commands; enabling --admissible-commands")
+    if args.subcommand in ("llm-vqvae", "llm-triton") and not args.admissible_commands:
+        log.warning(f"{args.subcommand} needs admissible commands; enabling --admissible-commands")
         args.admissible_commands = True
 
     # Create logging directory.
@@ -551,6 +671,15 @@ def main():
     if args.wandb:
         os.environ["WANDB_MODE"] = "online"
         os.environ.pop("WANDB_RUN_ID", None)
+
+    if args.diagnostic_tasks_path is not None or getattr(args, "diagnostic_tasks", None) is not None:
+        args.diagnostic_tasks_path = (
+            getattr(args, "diagnostic_tasks", None)
+            or args.diagnostic_tasks_path
+            or "data/diagnostic_tasks.json"
+        )
+        diagnostic_benchmark(agent, args)
+        return
 
     args.envs = args.envs or tales.envs
     args.envs = [  # Expand tasks into their respective environments.

@@ -1,0 +1,70 @@
+{
+  "agent": "LLMAgent_api-gpt-oss-120b_s20241001_cNone_t0.0_convTrue_graph",
+  "diagnostic_scores": {
+    "spatial": 0.0,
+    "deductive": 0.0,
+    "inductive": 0.026,
+    "grounded": 0.0
+  },
+  "transfer_analysis": {
+    "r_squared": -0.4741,
+    "mse": 0.0024,
+    "mae": 0.0315,
+    "predictions": [
+      {
+        "task": "TWXSimonSays50",
+        "skill_weights": {
+          "spatial": 0.1,
+          "deductive": 0.1,
+          "inductive": 0.6,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0156,
+        "actual_score": 0.02,
+        "error": 0.0044,
+        "skill_contributions": {
+          "spatial": 0.0,
+          "deductive": 0.0,
+          "inductive": 0.0156,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXSimonSays100",
+        "skill_weights": {
+          "spatial": 0.1,
+          "deductive": 0.1,
+          "inductive": 0.6,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0156,
+        "actual_score": 0.01,
+        "error": -0.0056,
+        "skill_contributions": {
+          "spatial": 0.0,
+          "deductive": 0.0,
+          "inductive": 0.0156,
+          "grounded": 0.0
+        }
+      },
+      {
+        "task": "TWXSimonSays10",
+        "skill_weights": {
+          "spatial": 0.1,
+          "deductive": 0.1,
+          "inductive": 0.6,
+          "grounded": 0.3
+        },
+        "predicted_score": 0.0156,
+        "actual_score": 0.1,
+        "error": 0.0844,
+        "skill_contributions": {
+          "spatial": 0.0,
+          "deductive": 0.0,
+          "inductive": 0.0156,
+          "grounded": 0.0
+        }
+      }
+    ]
+  }
+}

@@ -28,6 +28,7 @@ python benchmark.py graph \
     --conversation \
     --admissible-commands
 ```
+> **Note**: To force a re-run of a benchmark and ignore cached previous results, add the `-ff` (or `--force-all`) flag to this command!
 
 ### Hyperparameters
 - **LLM Endpoint**: `api-gpt-oss-120b` (Triton AI Proxy)
@@ -39,9 +40,10 @@ python benchmark.py graph \
 - **Graph State**: Full NetworkX Edge list stringified in `[Knowledge Graph Tracker]`
 
 ### Results (TextWorld Cooking Levels 1-10)
-- **Mean Normalized Score**: **57.95%**
+- **Mean Normalized Score**: **73.58%**
 - **Average Token Efficiency**: Logged per game
 - **Average Doom Loop Count**: Suppressed/Minimized by graph logic.
+- **Architectural Notes**: The Graph Agent has been fully generalized beyond TextWorld using a generic `ACTION_RECOMMENDER_SYSTEM_PROMPT`, State-Aware Chain-of-Thought reasoning, and Episodic Reflexion (learning from Game Over failures across episodes).
 
 ---
 
@@ -59,6 +61,7 @@ python benchmark.py rag \
     --conversation \
     --admissible-commands
 ```
+> **Note**: To force a re-run of a benchmark and ignore cached previous results, add the `-ff` (or `--force-all`) flag to this command!
 
 ### Hyperparameters
 - **LLM Endpoint**: `api-gpt-oss-120b` (Triton AI Proxy)

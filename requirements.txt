@@ -10,6 +10,7 @@ alfworld>=0.4.0
 
 termcolor
 wandb
+PyYAML
 numpy
 pandas
 

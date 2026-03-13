@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-# Runs benchmark.py per env, converts output to episode JSONs.
+"""
+Collect trajectories for VQ-VAE training.
+
+Runs rule-based collectors (diverse, noisy-walkthrough) via benchmark.py on each env.
+No LLM/API key needed. Outputs episode_*.json per env with (obs, action) steps.
+
+Collectors:
+  - diverse-collector: Exploration with varied action selection
+  - noisy-walkthrough: Walkthrough with --noise-rate (e.g. 0.15) to inject mistakes
+
+Output: data/trajectories/{collector}/ or --output-dir
+"""
 
 import argparse
 import json
@@ -20,6 +31,8 @@ def main():
                    choices=sorted(tales.envs_per_task.keys()))
     p.add_argument("--envs", nargs="+")
     p.add_argument("--episodes-per-game", type=int, default=1)
+    p.add_argument("--runs-per-env", type=int, default=1,
+                   help="Run benchmark this many times per env; episodes are merged across runs")
     p.add_argument("--nb-steps", type=int, default=200)
     p.add_argument("--seed", type=int, default=20241001)
     p.add_argument("--output-dir", type=Path, default=None)
@@ -57,47 +70,58 @@ def main():
         traj_path = work_dir / f"{safe}.json"
         qtable_path = work_dir / f"{safe}_qtable.json"
 
-        cmd = [sys.executable, "benchmark.py", "--agent", args.agent, args.agent_name,
-               "--envs", env, "--nb-steps", str(args.nb_steps), "--seed", str(args.seed),
-               "--trajectory-path", str(traj_path), "--autosave", "-ff"]
-        if args.agent_name == "trajectory-collector":
-            cmd += ["--alpha", "0.2", "--gamma", "0.95", "--epsilon", "0.3", "--epsilon-min", "0.05",
-                    "--epsilon-decay", "0.999", "--qtable-path", str(qtable_path)]
-        if args.agent_name == "diverse-collector":
-            if args.min_episode_length is not None: cmd += ["--min-episode-length", str(args.min_episode_length)]
-            if args.min_reward is not None: cmd += ["--min-reward", str(args.min_reward)]
-            if args.max_repetition_rate is not None: cmd += ["--max-repetition-rate", str(args.max_repetition_rate)]
-        if args.agent_name == "noisy-walkthrough":
-            if args.noise_rate is not None: cmd += ["--noise-rate", str(args.noise_rate)]
-            if args.min_episode_length is not None: cmd += ["--min-episode-length", str(args.min_episode_length)]
-        if not args.no_admissible_commands:
-            cmd.append("--admissible-commands")
+        min_ep = args.min_episode_length
+        if min_ep is None and args.nb_steps < 50:
+            min_ep = 3  # short runs need low min_ep or episodes never get saved
 
-        try:
-            subprocess.run(cmd, cwd=_ROOT, check=True)
-        except subprocess.CalledProcessError:
-            failures.append(env)
-            continue
+        all_episodes = []
+        for run in range(args.runs_per_env):
+            seed = args.seed + run  # vary seed per run for different trajectories
+            cmd = [sys.executable, "benchmark.py", "--agent", args.agent, args.agent_name,
+                   "--envs", env, "--nb-steps", str(args.nb_steps),
+                   "--game-seed", str(seed), "--seed", str(seed),
+                   "--trajectory-path", str(traj_path), "--autosave", "-ff"]
+            if args.agent_name == "trajectory-collector":
+                cmd += ["--alpha", "0.2", "--gamma", "0.95", "--epsilon", "0.3", "--epsilon-min", "0.05",
+                        "--epsilon-decay", "0.999", "--qtable-path", str(qtable_path)]
+            if args.agent_name == "diverse-collector":
+                if min_ep is not None: cmd += ["--min-episode-length", str(min_ep)]
+                if args.min_reward is not None: cmd += ["--min-reward", str(args.min_reward)]
+                if args.max_repetition_rate is not None: cmd += ["--max-repetition-rate", str(args.max_repetition_rate)]
+            if args.agent_name == "noisy-walkthrough":
+                if args.noise_rate is not None: cmd += ["--noise-rate", str(args.noise_rate)]
+                if min_ep is not None: cmd += ["--min-episode-length", str(min_ep)]
+            if not args.no_admissible_commands:
+                cmd.append("--admissible-commands")
 
-        if not traj_path.exists():
-            failures.append(env)
-            continue
+            try:
+                subprocess.run(cmd, cwd=_ROOT, check=True)
+            except subprocess.CalledProcessError:
+                continue  # skip failed run, try next
 
-        with traj_path.open("r", encoding="utf-8") as f:
-            payload = json.load(f)
-        episodes = list(payload.get("episodes", []))[:args.episodes_per_game]
-        if len(episodes) < args.episodes_per_game:
+            if not traj_path.exists():
+                continue
+
+            with traj_path.open("r", encoding="utf-8") as f:
+                payload = json.load(f)
+            run_episodes = list(payload.get("episodes", []))
             prog = payload.get("in_progress_episode", {}) or {}
             if prog.get("trajectory"):
-                episodes.append(prog)
-        episodes = episodes[:args.episodes_per_game]
+                run_episodes.append(prog)
+            all_episodes.extend(run_episodes)
+            if len(all_episodes) >= args.episodes_per_game:
+                break
 
+        episodes = all_episodes[:args.episodes_per_game]
         if not episodes:
             failures.append(env)
             continue
 
         game_dir = out_dir / env
         game_dir.mkdir(parents=True, exist_ok=True)
+        # Clear stale episodes from previous runs (e.g. had 20, now have 6)
+        for old in game_dir.glob("episode_*.json"):
+            old.unlink()
         for i, ep in enumerate(episodes):
             steps = []
             total_r = 0.0

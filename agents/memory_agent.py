@@ -13,6 +13,48 @@ from memory import MemoryCompressor, ObservationParser, OptionModule, Retriever,
 from tales.agent import register
 from tales.token import get_token_counter
 
+ACTION_RECOMMENDER_SYSTEM_PROMPT = (
+    "You are an action recommender for a text-based game agent.\n"
+    "At each step your job is to do TWO things:\n"
+    " 1. judge the outcome of the previous action, if there was a previous action\n"
+    " 2. recommend exactly ONE next action\n\n"
+    "Outcome labels for the previous action:\n"
+    " - useful_scoring: the previous action directly increased score or clearly completed a scoring milestone\n"
+    " - useful_non_scoring: the previous action helped progress without increasing score (new room, new information, opened access, useful object)\n"
+    " - useless: the previous action produced no useful progress\n"
+    " - failed: the previous action directly caused failure, loss, death, or restart\n\n"
+    "How to judge the previous action:\n"
+    " - Judge only the immediately previous action explicitly provided in the prompt, not an entire task.\n"
+    " - Use the latest observation/feedback as evidence.\n"
+    " - If score increased after the previous action, prefer useful_scoring.\n"
+    " - If the action revealed new information, opened a path, moved to a useful new room, or obtained a useful item, prefer useful_non_scoring.\n"
+    " - Entering a new room that helps search for a goal-relevant location usually counts as useful_non_scoring.\n"
+    " - If the action had no meaningful effect, or only repeated already-known information, prefer useless.\n"
+    " - If the action directly triggered a loss, restart, or obviously bad irreversible result, prefer failed.\n\n"
+    "Decision rules for the next action:\n"
+    " - Use the long-term goal as the overall objective.\n"
+    " - Use the map summary to navigate systematically.\n"
+    " - Avoid repeating failed actions in the same relevant location/context unless there is strong new evidence.\n"
+    " - Avoid repeating useless actions unless the observation has materially changed.\n"
+    " - Previously useful actions are examples of good strategy, but do not repeat an already completed useful action in the current episode unless the observation indicates it is relevant again.\n"
+    " - Prefer actions that help reach or exploit goal-relevant locations and objects.\n"
+    " - If the map summary lists untried exits from the current room, prefer one of them unless a known path to a more relevant target is available.\n"
+    " - If a target location is known to be important (for example, kitchen), prioritize movement actions that help locate or reach it.\n"
+    " - Do not interact with irrelevant objects just because they are mentioned in the observation.\n"
+    " - Opening a door is not a goal by itself; only do it when it enables progress toward the long-term goal.\n"
+    " - Output exactly one executable in-game action.\n"
+)
+
+CRITICAL_RULES = (
+    "- Use the WORLD STATE to know where things are. Do NOT take something "
+    "you are already holding. Do NOT put something where it already is.\n"
+    "- NEVER undo a previous action. If you just put X somewhere, do NOT pick it up "
+    "again unless you need it for a SPECIFIC next step (cooking, eating, etc).\n"
+    "- Each action should move you forward in the game flow above.\n"
+    "- If an action is marked [UNDO!] it would reverse a previous action -- avoid it.\n\n"
+    "Output: the exact command, nothing else."
+)
+
 
 class MemoryAgent(tales.Agent):
     """Custom memory agent with scratchpad, compression, optional retrieval, and options."""
@@ -154,6 +196,8 @@ class MemoryAgent(tales.Agent):
         if self.retriever is not None:
             retrieved = self.retriever.query(obs, self.compressed_history)
 
+        self._last_act_updates = updates
+        self._last_act_retrieved = retrieved
         action = self._generate_action(obs, info, updates, retrieved)
         self.history.append(
             {
@@ -165,10 +209,13 @@ class MemoryAgent(tales.Agent):
             }
         )
 
+        admissible = list(info.get("admissible_commands") or [])
+        scores = self.score_actions(obs, admissible, info) if admissible else {}
         stats = {
             "prompt": self._build_prompt_debug(obs, updates, retrieved),
             "response": action,
             "nb_tokens": self.token_counter(text=obs),
+            "action_scores": scores,
         }
         return action, stats
 
@@ -194,6 +241,33 @@ class MemoryAgent(tales.Agent):
             "top_rules": [],
         }
 
+    def score_actions(
+        self,
+        obs: str,
+        admissible_commands: List[str],
+        info: Dict[str, Any],
+    ) -> Dict[str, float]:
+        """Score by option + heuristic candidate order. Returns dict[action, score] in [0, 1]."""
+        admissible = list(admissible_commands or [])
+        if not admissible:
+            return {}
+        updates = getattr(self, "_last_act_updates", {})
+        retrieved = getattr(self, "_last_act_retrieved", [])
+        option = self.option_module.choose_option(obs)
+        option_candidates = self.option_module.option_actions(option)
+        heuristics = self._heuristic_actions(obs, updates, retrieved)
+        candidates = option_candidates + heuristics
+        admissible_set = set(admissible)
+        scores = {a: 0.0 for a in admissible}
+        for rank, cand in enumerate(candidates):
+            if cand in admissible_set:
+                scores[cand] = max(scores.get(cand, 0), 1.0 - 0.1 * rank)
+        if scores:
+            mx = max(scores.values())
+            if mx > 0:
+                scores = {a: s / mx for a, s in scores.items()}
+        return scores
+
     def _generate_action(
         self,
         obs: str,
@@ -216,6 +290,9 @@ class MemoryAgent(tales.Agent):
 
         if admissible:
             admissible_set = set(admissible)
+            scores = self.score_actions(obs, admissible, info)
+            if scores:
+                return max(scores, key=scores.get)
             for candidate in candidates:
                 if candidate in admissible_set:
                     return candidate
@@ -308,18 +385,23 @@ class MemoryAgent(tales.Agent):
         return (
             "You are an agent in a text game. Return exactly one short command.\n"
             "Do not explain. No punctuation unless needed.\n\n"
+            f"Previous action:\n{self.history[-1]['action'] if self.history else 'N/A'}\n\n"
             f"Observation:\n{obs}\n\n"
             f"Scratchpad:\n{json.dumps(snapshot, ensure_ascii=True)}\n\n"
             f"Compressed history:\n{json.dumps(compressed, ensure_ascii=True)}\n\n"
             f"Retrieved memory:\n{json.dumps(retrieved[:3], ensure_ascii=True)}\n\n"
             f"Heuristic candidates:\n{candidate_text}\n\n"
-            f"Admissible commands:\n{admissible_text}\n"
+            f"Admissible commands:\n{admissible_text}\n\n"
+            f"CRITICAL RULES:\n{CRITICAL_RULES}\n"
         )
 
     def _query_llm(self, prompt: str, api_key: str) -> Dict[str, Any]:
         payload = {
             "model": self.llm_model,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": [
+                {"role": "system", "content": ACTION_RECOMMENDER_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
             "temperature": 0.0,
             "max_tokens": 32,
         }

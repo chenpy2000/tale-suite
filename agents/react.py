@@ -70,6 +70,58 @@ class ReactAgent(tales.Agent):
         self.cot_temp = kwargs["cot_temp"]
         self.cot_max_tokens = kwargs["cot_max_tokens"]
         self.conversation = kwargs["conversation"]
+        self._score_cache = None
+
+    def score_actions(self, obs, admissible_commands, info):
+        """LLM rates each admissible action 0-10. Returns dict[action, score] in [0, 1]."""
+        admissible = list(admissible_commands or [])
+        if not admissible:
+            return {}
+        cache_key = (obs, tuple(sorted(admissible)))
+        if self._score_cache is not None and self._score_cache[0] == cache_key:
+            return self._score_cache[1]
+        prompt = (
+            f"Observation:\n{obs}\n\n"
+            f"Rate each valid action from 0 (bad) to 10 (best). One line per action.\n"
+            f"Format: action: score\n\nValid actions:\n" + "\n".join(f"- {a}" for a in admissible[:50])
+        )
+        if len(admissible) > 50:
+            prompt += f"\n... and {len(admissible) - 50} more"
+        prompt += "\n\nOutput ratings:"
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
+        try:
+            response = self._llm_call_from_messages(
+                messages, temperature=0.0, max_tokens=512, seed=self.seed, stream=False
+            )
+            text = response.text().strip()
+        except Exception:
+            self._score_cache = (cache_key, {a: 0.0 for a in admissible})
+            return self._score_cache[1]
+        scores = {a: 0.0 for a in admissible}
+        adm_lower = {a.lower(): a for a in admissible}
+        for line in text.split("\n"):
+            m = re.search(r"(.+?)\s*[:=]\s*(\d+(?:\.\d+)?)", line, re.IGNORECASE)
+            if m:
+                act_part = m.group(1).strip().strip("'\"-*")
+                try:
+                    sc = float(m.group(2))
+                    sc = max(0, min(10, sc))
+                    for cand in admissible:
+                        if cand.lower() in act_part or act_part.lower() in cand.lower():
+                            scores[cand] = max(scores[cand], sc)
+                            break
+                    if act_part.lower() in adm_lower:
+                        scores[adm_lower[act_part.lower()]] = max(
+                            scores[adm_lower[act_part.lower()]], sc
+                        )
+                except ValueError:
+                    pass
+        if scores:
+            mx = max(scores.values())
+            if mx > 0:
+                scores = {a: s / mx for a, s in scores.items()}
+        self._score_cache = (cache_key, scores)
+        return scores
 
     @property
     def uid(self):
@@ -116,99 +168,67 @@ class ReactAgent(tales.Agent):
         )
 
     def act(self, obs, reward, done, infos):
-        admissible = infos.get("admissible_commands", None)
-        admissible_text = self._format_admissible_commands(admissible)
+    self._score_cache = None
+    admissible = list(infos.get("admissible_commands") or []) if isinstance(infos, dict) else []
+    if not admissible:
+        return "look", {"nb_tokens": 0, "action_scores": {}}
 
-        state_text = obs
-        if admissible_text:
-            state_text = f"{obs}\n\n{admissible_text}"
+    question = "// Based on the above information (history), what is the best action to take? Let's think step by step.\n"
+    messages = self.build_messages(obs, question, [])
+    response = self._llm_call_from_messages(
+        messages,
+        temperature=self.cot_temp,
+        max_tokens=self.cot_max_tokens,
+        seed=self.seed,
+        stream=False,
+    )
 
-        # -------------------------
-        # Stage 1: reasoning
-        # -------------------------
-        think_question = (
-            "Think about the best next action.\n"
-            "Do not output the final command yet.\n"
-            "Output exactly:\n"
-            "<thinking>...</thinking>"
-        )
+    answer = response.text().strip()
+    nb_tokens_cot = self.token_counter(messages=messages, text=response.text())
 
-        think_messages = self.build_messages(
-            observation=state_text,
-            question=think_question,
-            qa_history=[],
-            system_prompt=THINK_SYSTEM_PROMPT,
-        )
+    prompt = "// Provide your chosen action on a single line while respecting the desired format.\n> "
+    messages = self.build_messages(obs, prompt, [(question, f"{answer}\n")])
+    response = self._llm_call_from_messages(
+        messages,
+        temperature=self.act_temp,
+        max_tokens=100,
+        seed=self.seed,
+        stream=False,
+    )
 
-        think_response = self._llm_call_from_messages(
-            think_messages,
-            temperature=self.cot_temp,
-            max_tokens=self.cot_max_tokens,
-            seed=self.seed,
-            stream=False,
-        )
+    action = response.text().strip()
+    admissible_set = {a.lower(): a for a in admissible}
 
-        think_raw = think_response.text().strip()
-        # print("\n=== STAGE 1 RAW ===", flush=True)
-        # print(think_raw, flush=True)
+    if action.lower() not in admissible_set:
+        for cmd in admissible:
+            if (
+                cmd.lower() == action.lower()
+                or action.lower() in cmd.lower()
+                or cmd.lower() in action.lower()
+            ):
+                action = cmd
+                break
+        else:
+            scores = self.score_actions(obs, admissible, infos)
+            if scores:
+                action = max(scores, key=scores.get)
+            else:
+                action = str(self.rng.choice(admissible))
+    else:
+        action = admissible_set[action.lower()]
 
-        reasoning = self.parse_thinking(think_raw)
-        # print("\n=== STAGE 1 PARSED ===", flush=True)
-        # print(reasoning, flush=True)
+    self.history.append((f"{obs}\n> ", f"{action}\n"))
+    nb_tokens_act = self.token_counter(messages=messages, text=response.text())
+    scores = self.score_actions(obs, admissible, infos)
 
-        nb_tokens_cot = self.token_counter(messages=think_messages, text=think_response.text())
+    stats = {
+        "prompt": format_messages_to_markdown(messages),
+        "response": response.text(),
+        "nb_tokens": nb_tokens_cot + nb_tokens_act,
+        "action_scores": scores,
+    }
 
-        # -------------------------
-        # Stage 2: action selection
-        # -------------------------
-        action_question = (
-            "Reasoning from the previous step:\n"
-            f"{reasoning}\n\n"
-            "Now provide the chosen action.\n"
-            "Output exactly:\n"
-            "<action>\n"
-            "single valid game command here\n"
-            "</action>"
-        )
-
-        action_messages = self.build_messages(
-            observation=state_text,
-            question=action_question,
-            qa_history=[],
-            system_prompt=ACTION_SYSTEM_PROMPT,
-        )
-
-        action_response = self._llm_call_from_messages(
-            action_messages,
-            temperature=self.act_temp,
-            max_tokens=100,
-            seed=self.seed,
-            stream=False,
-        )
-
-        action_raw = action_response.text().strip()
-        # print("\n=== STAGE 2 RAW ===", flush=True)
-        # print(action_raw, flush=True)
-
-        action = self.parse_action(action_raw, admissible)
-        # print("\n=== STAGE 2 PARSED ===", flush=True)
-        # print(action, flush=True)
-
-        if not action:
-            action = "help"
-
-        self.history.append((f"{obs}\n> ", f"{action}\n"))
-
-        nb_tokens_act = self.token_counter(messages=action_messages, text=action_response.text())
-        stats = {
-            "thinking_prompt": format_messages_to_markdown(think_messages),
-            "thinking_response": think_response.text(),
-            "action_prompt": format_messages_to_markdown(action_messages),
-            "action_response": action_raw,
-            "nb_tokens": nb_tokens_cot + nb_tokens_act,
-        }
-
-        return action, stats
+    return action, stats
 
     def _format_admissible_commands(self, admissible):
         if not admissible:

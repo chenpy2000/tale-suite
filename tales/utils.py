@@ -99,11 +99,17 @@ def download(url, dst, desc=None, force=False):
 def merge_messages(messages):
     """Merge messages from the same role into a single message."""
     messages_out = [dict(messages[0])]
+    messages_out[0]["content"] = messages_out[0].get("content") or ""
     for message in messages[1:]:
+        content = message.get("content")
+        if content is None:
+            content = ""
         if message["role"] == messages_out[-1]["role"]:
-            messages_out[-1]["content"] += "\n\n" + message["content"]
+            prev = messages_out[-1].get("content") or ""
+            messages_out[-1]["content"] = prev + "\n\n" + content
         else:
             messages_out.append(dict(message))
+            messages_out[-1]["content"] = content
 
     return messages_out
 
@@ -134,7 +140,7 @@ def messages2conversation(model, messages):
                 stream=False,
             )
             response._done = True
-            response._chunks = [message["content"]]
+            response._chunks = [message.get("content") or ""]
             responses.append(response)
 
             system = None

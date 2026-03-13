@@ -2,6 +2,13 @@ import argparse
 
 import llm
 import numpy as np
+
+# Patch llm Response.text() to handle None chunks (API can return content: null)
+_llm_response = llm.Response
+_orig_text = _llm_response.text
+def _safe_text(self):
+    return "".join(c if c is not None else "" for c in self._chunks)
+_llm_response.text = _safe_text
 from tenacity import (
     retry,
     retry_if_exception,
@@ -150,7 +157,7 @@ class LLMAgent(tales.Agent):
 
         if not self.conversation:
             # Merge all messages into a single message except for the system.
-            content = "".join([msg["content"] for msg in messages[1:]])
+            content = "".join([(msg.get("content") or "") for msg in messages[1:]])
             messages = messages[:1] + [{"role": "user", "content": content}]
 
         if not self.allows_system_prompt:
@@ -192,6 +199,11 @@ def build_argparser(parser=None):
         required=True,
         action=argparse.BooleanOptionalAction,
         help="Enable conversation mode. Otherwise, use single prompt.",
+    )
+    group.add_argument(
+        "--key",
+        default=None,
+        help="API key (overrides env). Use for Triton/OpenAI models.",
     )
 
     return parser
