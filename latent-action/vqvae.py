@@ -22,6 +22,14 @@ PAD = "<PAD>"
 UNK = "<UNK>"
 
 
+def normalize_text(s):
+    """Strip and collapse whitespace. Use consistently for obs/actions in training and inference."""
+    if s is None:
+        return ""
+    t = str(s).strip()
+    return " ".join(t.split()) if t else ""
+
+
 class ActionVocab:
     """Maps action strings to ids. Built from trajectories (action counts) or loaded from checkpoint."""
     PAD_TOKEN = PAD
@@ -34,14 +42,14 @@ class ActionVocab:
 
     @classmethod
     def from_trajectories(cls, root_dir, min_freq=1):
-        """Build vocab from episode_*.json: count actions, keep those with freq >= min_freq."""
+        """Build vocab from episode_*.json: count actions (normalized), keep those with freq >= min_freq."""
         root = Path(root_dir) if root_dir else Path(__file__).resolve().parent / "data" / "trajectories"
         cnt = Counter()
         for p in root.rglob("episode_*.json"):
             try:
                 for s in json.load(p.open(encoding="utf-8")).get("steps", []):
-                    a = str(s.get("action", "")).strip()
-                    if a:
+                    a = normalize_text(s.get("action", ""))
+                    if a and a != PAD:
                         cnt[a] += 1
             except (json.JSONDecodeError, OSError):
                 pass
@@ -57,7 +65,15 @@ class ActionVocab:
         return len(self.stoi)
 
     def encode(self, a):
-        return self.stoi.get(str(a), self.stoi[UNK])
+        try:
+            if a is None or (isinstance(a, str) and a.strip() == ""):
+                return self.stoi[PAD]
+            n = normalize_text(a)
+            if n == "" or n == PAD:
+                return self.stoi[PAD]
+            return self.stoi.get(n, self.stoi[UNK])
+        except Exception:
+            return self.stoi[UNK]
 
     def decode(self, i):
         return self.itos.get(int(i), UNK)
@@ -192,28 +208,41 @@ class VQVAE(nn.Module):
             action_seq = [list(s) for s in action_seq]
         max_len = max(max(len(s) for s in obs_seq), max(len(s) for s in action_seq))
         for i in range(len(obs_seq)):
-            obs_seq[i] = obs_seq[i] + [""] * (max_len - len(obs_seq[i]))
-            action_seq[i] = action_seq[i] + [PAD] * (max_len - len(action_seq[i]))
+            obs_seq[i] = [normalize_text(t) for t in obs_seq[i]] + [""] * (max_len - len(obs_seq[i]))
+            action_seq[i] = [PAD if t == PAD or (isinstance(t, str) and (t.strip() == PAD or not t.strip())) else normalize_text(t) for t in action_seq[i]] + [PAD] * (max_len - len(action_seq[i]))
         return obs_seq, action_seq
 
     def _encode_text_batch(self, obs_batch, action_batch):
-        obs_embs = [torch.stack([self.text_encoder.encode_observation(t) for t in seq]) for seq in obs_batch]
-        act_embs = [torch.stack([self.text_encoder.encode_action(t) for t in seq]) for seq in action_batch]
-        return torch.stack(obs_embs).to(self.device), torch.stack(act_embs).to(self.device)
+        """Batch encode all obs/actions at once (much faster than per-item encoding)."""
+        all_obs = [" ".join((t or "").strip().split()) for seq in obs_batch for t in seq]
+        all_act = [" ".join((t or "").strip().split()) for seq in action_batch for t in seq]
+        obs_emb = self.text_encoder.model.encode(
+            all_obs, convert_to_tensor=True, show_progress_bar=False, normalize_embeddings=False
+        )
+        act_emb = self.text_encoder.model.encode(
+            all_act, convert_to_tensor=True, show_progress_bar=False, normalize_embeddings=False
+        )
+        B, T = len(obs_batch), len(obs_batch[0])
+        obs_emb = obs_emb.view(B, T, -1).to(self.device).clone().detach()
+        act_emb = act_emb.view(B, T, -1).to(self.device).clone().detach()
+        return obs_emb, act_emb
+
+    def forward_from_embeddings(self, obs_emb, action_emb, target_ids):
+        """Forward pass using precomputed embeddings (skips text encoding)."""
+        z = self.encoder(obs_emb, action_emb)
+        quantized, option_ids, vq_loss = self.quantizer(z)
+        logits = self.decoder(quantized, obs_emb)
+        recon_loss = self.decoder.action_loss(logits, target_ids)
+        # vq_loss = cb_loss + 0.25*cmt (quantizer.beta). Add (commitment_beta - 0.25)*cmt for schedule.
+        cmt = F.mse_loss(z, quantized.detach())
+        total_loss = recon_loss + vq_loss + max(0, self.commitment_beta - 0.25) * cmt
+        u = self.quantizer.usage_stats()
+        metrics = {"loss/total": float(total_loss.item()), "loss/reconstruction": float(recon_loss.item()),
+                   "loss/vq": float(vq_loss.item())}
+        return logits, option_ids, total_loss, metrics
 
     def forward(self, obs_sequence, action_sequence):
         obs_batch, action_batch = self._normalize_batch(obs_sequence, action_sequence)
         obs_emb, action_emb = self._encode_text_batch(obs_batch, action_batch)
         target_ids = torch.tensor([[self.action_vocab.encode(a) for a in seq] for seq in action_batch], dtype=torch.long, device=self.device)
-
-        z = self.encoder(obs_emb, action_emb)
-        quantized, option_ids, vq_loss = self.quantizer(z)
-        logits = self.decoder(quantized, obs_emb)
-        recon_loss = self.decoder.action_loss(logits, target_ids)
-        commitment_loss = self.commitment_beta * F.mse_loss(z, quantized.detach())
-        total_loss = recon_loss + vq_loss + commitment_loss
-
-        u = self.quantizer.usage_stats()
-        metrics = {"loss/total": float(total_loss.item()), "loss/reconstruction": float(recon_loss.item()),
-                   "loss/vq": float(vq_loss.item()), "loss/commitment": float(commitment_loss.item())}
-        return logits, option_ids, total_loss, metrics
+        return self.forward_from_embeddings(obs_emb, action_emb, target_ids)

@@ -1,0 +1,20 @@
+- model_id: api-gpt-oss-120b
+  model_name: api-gpt-oss-120b
+  api_base: "https://tritonai-api.ucsd.edu/v1"
+  api_key_name: TRITONAI_API_KEY
+
+- model_id: api-mistral-small-3.2-2506
+  model_name: api-mistral-small-3.2-2506
+  api_base: "https://tritonai-api.ucsd.edu/v1"
+  api_key_name: TRITONAI_API_KEY
+
+- model_id: api-llama-4-scout
+  model_name: api-llama-4-scout
+  api_base: "https://tritonai-api.ucsd.edu/v1"
+  api_key_name: TRITONAI_API_KEY
+
+- model_id: minimax.minimax-m2
+  model_name: minimax.minimax-m2
+  api_base: "https://tritonai-api.ucsd.edu/v1"
+  api_key_name: TRITONAI_API_KEY
+

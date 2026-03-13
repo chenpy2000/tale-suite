@@ -47,6 +47,7 @@ def evaluate(agent, env_name, args):
         if not args.force_failed or summary["status"] == "finished":
             log.info(colored("Skipped, already done.", "yellow"))
             log.removeHandler(fh)
+            fh.close()
             return summary
 
     run_name = f"{env_name} - {agent.uid}"
@@ -60,6 +61,7 @@ def evaluate(agent, env_name, args):
             if wandb_run.state in ("finished", "running"):
                 log.info(colored("Skipped, already exists.", "yellow"))
                 log.removeHandler(fh)
+                fh.close()
                 summary = {
                     "status": wandb_run.state,
                     "env_name": env_name,
@@ -214,6 +216,8 @@ def evaluate(agent, env_name, args):
                 log.debug(obs)
 
             if done:
+                # Let agent record final step and save (e.g. trajectory collectors)
+                action, stats = agent.act(obs, score, done, info)
                 if info["won"]:
                     nb_wins += 1
                     if highscore == max_score:
@@ -231,6 +235,10 @@ def evaluate(agent, env_name, args):
                 nb_resets += 1
 
                 log.debug(f"{obs}")
+
+        # Episodes truncated by step limit never get done=True; notify agent
+        if not done and hasattr(agent, "episode_truncated"):
+            agent.episode_truncated(obs, info)
 
         status = "finished"
 
@@ -330,6 +338,7 @@ def evaluate(agent, env_name, args):
     wandb_run.finish(exit_code=int(status != "finished"))
 
     log.removeHandler(fh)
+    fh.close()
     return summary
 
 
@@ -536,8 +545,8 @@ def main():
     agent = Agent(**vars(args))
     agent.new = partial(Agent, **vars(args))
 
-    if args.subcommand == "llm-vqvae" and not args.admissible_commands:
-        log.warning("llm-vqvae needs admissible commands; enabling --admissible-commands")
+    if args.subcommand in ("llm-vqvae", "llm-triton") and not args.admissible_commands:
+        log.warning(f"{args.subcommand} needs admissible commands; enabling --admissible-commands")
         args.admissible_commands = True
 
     # Create logging directory.
