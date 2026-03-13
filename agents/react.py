@@ -360,9 +360,10 @@ class ReactAgent(tales.Agent):
             flags=re.DOTALL | re.IGNORECASE,
         )
         if m:
-            action = m.group(1).strip()
-            if action:
-                return action
+            raw = m.group(1).strip()
+            if raw:
+                return raw.splitlines()[0].strip()
+
 
         m = re.search(
             r"<action>\s*(.*)",
@@ -370,9 +371,9 @@ class ReactAgent(tales.Agent):
             flags=re.DOTALL | re.IGNORECASE,
         )
         if m:
-            action = m.group(1).strip().splitlines()[0].strip()
-            if action:
-                return action
+            raw = m.group(1).strip()
+            if raw:
+                return raw.splitlines()[0].strip()
 
         if admissible:
             lines = [line.strip() for line in text.splitlines() if line.strip()]
