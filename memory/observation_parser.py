@@ -80,7 +80,7 @@ class ObservationParser:
                 raw = json.loads(resp.read().decode("utf-8"))
             content = self._extract_content(raw)
             obj = self._extract_json_object(content)
-            if obj is None:
+            if obj is None: 
                 return None
             return self._normalize_updates(obj)
         except Exception:
