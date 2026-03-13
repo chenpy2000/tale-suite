@@ -420,7 +420,40 @@ class LLMVQVAEAgent(tales.Agent):
                 break
         return predictions
 
+    def _is_stuck_from_history(self):
+        """Detect if we're in a stuck state from recent history (repetition, loops)."""
+        if len(self.full_act_h) < 4:
+            return False
+        h = [normalize_text(a) for a in self.full_act_h[-12:]]
+        n = len(h)
+
+        for period in range(1, n // 2 + 1):
+            tail = h[-period:]
+            prev = h[-(2 * period):-period]
+            if len(prev) == period and tail == prev:
+                return True
+
+        recent = h[-6:]
+        verbs = {"take", "put", "drop", "insert"}
+        objects = set()
+        all_shuffle = True
+        for act in recent:
+            parts = act.split()
+            if parts and parts[0] in verbs:
+                obj = " ".join(p for p in parts[1:] if p not in ("from", "on", "into", "in"))
+                objects.add(obj)
+            else:
+                all_shuffle = False
+                break
+        if all_shuffle and len(objects) <= 2 and len(recent) >= 4:
+            return True
+
+        if any(self.action_counts.get(normalize_text(a), 0) >= 3 for a in recent):
+            return True
+        return False
+
     def _is_stuck(self, proposed_action):
+        """Check if proposed_action would continue a loop."""
         prop = normalize_text(proposed_action)
         h = [normalize_text(a) for a in self.full_act_h[-12:]] + [prop]
         n = len(h)
@@ -510,41 +543,25 @@ class LLMVQVAEAgent(tales.Agent):
         self.step_num += 1
         obs_str = normalize_text(obs)
 
-        vq_scores, log_probs = self._compute_vq_scores(obs_str, admissible)
-        traj_pred = self._get_trajectory_prediction(log_probs, admissible) if log_probs is not None else []
+        # LLM is primary. VQ-VAE is only used as a hint when stuck (or as fallback when LLM fails).
+        is_stuck = self._is_stuck_from_history()
 
-        sorted_by_vq = sorted(vq_scores.items(), key=lambda x: -x[1])
-        top_k = sorted_by_vq[:self.vqvae_top_k]
+        vq_scores, log_probs, sorted_by_vq, top_k = {}, None, [], []
+        if is_stuck:
+            vq_scores, log_probs = self._compute_vq_scores(obs_str, admissible)
+            sorted_by_vq = sorted(vq_scores.items(), key=lambda x: -x[1])
+            top_k = sorted_by_vq[: self.vqvae_top_k]
+            if log:
+                log.debug("  STUCK: using VQ-VAE as hint")
 
         if log:
-            log.debug("--- step %d | %d commands ---", self.step_num, len(admissible))
+            log.debug("--- step %d | %d commands | stuck=%s ---", self.step_num, len(admissible), is_stuck)
             log.debug("  Inventory: %s", sorted(self.inventory) if self.inventory else "empty")
-            log.debug("  Traj prediction: %s", traj_pred[:5])
-            for cmd, sc in sorted_by_vq[:8]:
-                undo = " [UNDO]" if self._is_undo(cmd) else ""
-                log.debug("  %s: %.3f (done %dx)%s", cmd, sc, self.action_counts.get(normalize_text(cmd), 0), undo)
 
         # Build prompt sections
         world_state_text = self._build_world_state_text()
         progress_text = self._build_progress_text()
         history_text = self._build_history_text()
-
-        traj_lines = [f"  {i+1}. {a}" for i, a in enumerate(traj_pred)] if traj_pred else ["  (no relevant predictions)"]
-        traj_hint = "VQ-VAE strategy (what winning games do at this stage):\n" + "\n".join(traj_lines)
-
-        vq_hint_parts = []
-        for i, (cmd, _) in enumerate(top_k):
-            cnt = self.action_counts.get(normalize_text(cmd), 0)
-            tags = []
-            if cnt > 1:
-                tags.append(f"done {cnt}x!")
-            elif cnt > 0:
-                tags.append(f"done {cnt}x")
-            if self._is_undo(cmd):
-                tags.append("UNDO!")
-            tag = f" [{', '.join(tags)}]" if tags else ""
-            vq_hint_parts.append(f"  {i+1}. {cmd}{tag}")
-        vq_hint = "VQ-VAE ranked valid actions:\n" + "\n".join(vq_hint_parts)
 
         MAX_CMD = 30
         cmd_lines = []
@@ -555,21 +572,40 @@ class LLMVQVAEAgent(tales.Agent):
         if len(admissible) > MAX_CMD:
             cmd_list += f"\n... and {len(admissible) - MAX_CMD} more"
 
+        # Only add VQ-VAE hints when stuck
+        hint_block = ""
+        if is_stuck and top_k:
+            traj_pred = self._get_trajectory_prediction(log_probs, admissible) if log_probs is not None else []
+            traj_lines = [f"  {i+1}. {a}" for i, a in enumerate(traj_pred)] if traj_pred else ["  (no relevant predictions)"]
+            traj_hint = "VQ-VAE strategy (what winning games do at this stage):\n" + "\n".join(traj_lines)
+            vq_hint_parts = []
+            for i, (cmd, _) in enumerate(top_k):
+                cnt = self.action_counts.get(normalize_text(cmd), 0)
+                tags = []
+                if cnt > 1:
+                    tags.append(f"done {cnt}x!")
+                elif cnt > 0:
+                    tags.append(f"done {cnt}x")
+                if self._is_undo(cmd):
+                    tags.append("UNDO!")
+                tag = f" [{', '.join(tags)}]" if tags else ""
+                vq_hint_parts.append(f"  {i+1}. {cmd}{tag}")
+            vq_hint = "VQ-VAE ranked valid actions (consider these to break the loop):\n" + "\n".join(vq_hint_parts)
+            hint_block = f"\n{traj_hint}\n\n{vq_hint}\n\n"
+
         prompt = (
             f"Step {self.step_num} of {self.nb_steps}\n\n"
             f"{world_state_text}\n\n"
             f"{progress_text}\n\n"
             f"{history_text}\n"
             f"Current observation:\n{obs_str}\n\n"
-            f"{traj_hint}\n\n"
-            f"{vq_hint}\n\n"
+            f"{hint_block}"
             f"Valid commands:\n{cmd_list}\n\n"
             f"Pick one command:"
         )
 
-        # Query LLM
+        # Query LLM (primary decision-maker)
         raw_llm = ""
-        vq_pick = top_k[0][0] if top_k else admissible[0]
         try:
             raw_llm = self._query_llm(prompt, log=log)
         except Exception as e:
@@ -577,7 +613,7 @@ class LLMVQVAEAgent(tales.Agent):
                 log.debug("  LLM EXCEPTION: %s", e)
 
         action = ""
-        source = "vq"
+        source = "llm"
         if raw_llm:
             action = self._align_to_admissible(raw_llm, admissible)
             if action:
@@ -585,16 +621,27 @@ class LLMVQVAEAgent(tales.Agent):
             elif log:
                 log.debug("  LLM '%s' not in admissible", raw_llm[:80])
 
+        # Fallback when LLM fails: use VQ-VAE (compute lazily if not already done)
         if not action:
+            if not vq_scores:
+                vq_scores, log_probs = self._compute_vq_scores(obs_str, admissible)
+                sorted_by_vq = sorted(vq_scores.items(), key=lambda x: -x[1])
+                top_k = sorted_by_vq[: self.vqvae_top_k]
+            vq_pick = top_k[0][0] if top_k else admissible[0]
             action = vq_pick
+            source = "vq_fallback"
 
+        # Override if LLM/VQ pick would continue a loop
         if self._is_stuck(action):
+            if not sorted_by_vq:
+                vq_scores, log_probs = self._compute_vq_scores(obs_str, admissible)
+                sorted_by_vq = sorted(vq_scores.items(), key=lambda x: -x[1])
             action = self._pick_unstuck_action(admissible, sorted_by_vq, log)
             source = "unstuck"
 
         if log:
-            log.debug("--- Final [%s]: %s (LLM: '%s', VQ #1: %s) ---",
-                      source, action, raw_llm[:60] if raw_llm else "<empty>", vq_pick)
+            log.debug("--- Final [%s]: %s (LLM: '%s') ---",
+                      source, action, raw_llm[:60] if raw_llm else "<empty>")
             log.debug("")
 
         # Update state
@@ -604,8 +651,8 @@ class LLMVQVAEAgent(tales.Agent):
         self.obs_h.append(obs_str)
         self.act_h.append(norm_action)
         self.full_act_h.append(norm_action)
-        self.obs_h = self.obs_h[-(self.w + 35):]
-        self.act_h = self.act_h[-self.w:]
+        self.obs_h = self.obs_h[-(self.w + 35) :]
+        self.act_h = self.act_h[-self.w :]
 
         norm_scores = {}
         if vq_scores:
@@ -632,7 +679,7 @@ def build_argparser(parser=None):
 
 register(
     name="llm-vqvae",
-    desc="LLM plays the game; VQ-VAE provides strategic action rankings from learned play patterns.",
+    desc="LLM is primary; VQ-VAE used only as hint when stuck or as fallback when LLM fails.",
     klass=LLMVQVAEAgent,
     add_arguments=build_argparser,
 )
