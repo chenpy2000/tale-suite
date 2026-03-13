@@ -1,11 +1,17 @@
 #!/bin/bash
-# Full evaluation: categorize -> diagnostic tasks -> diagnostic tests -> full benchmark -> transfer analysis -> plots.
+# Full evaluation pipeline: categorize -> select diagnostic tasks -> diagnostic tests ->
+# full benchmark -> transfer analysis -> hybrid agents (optional) -> plots.
+#
 # Usage: ./run_full_evaluation.sh [--api-key KEY] [--nb-steps N] [--nb-steps-diagn N] [--diagnostic-config PATH]
 # Env vars (API_KEY, NB_STEPS, etc.) override defaults; CLI args override env vars.
 
 set -e
 
-# Parse CLI args (override env vars)
+# --- CLI argument parsing ---
+# --api-key: TritonAI key for LLM agents (graph, llm-vqvae, memory-agent, hybrids)
+# --nb-steps: Max steps per episode for full benchmark (default 100)
+# --nb-steps-diagn: Max steps for diagnostic runs (default 50)
+# --diagnostic-config: YAML config for TWCooking-only diagnostic subset
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --api-key) API_KEY="$2"; shift 2 ;;
@@ -21,6 +27,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Load .env if present; cd to project root
 [ -f .env ] && export $(cat .env | xargs)
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_ROOT="$(pwd)"
@@ -31,6 +38,7 @@ export LLM_USER_PATH="${LLM_USER_PATH:-$PROJECT_ROOT/.llm}"
 # Ensure Triton keys are set when API_KEY is provided (graph, memory-agent, llm-vqvae use them)
 [[ -n "$API_KEY" ]] && export TRITON_API_KEY="${TRITON_API_KEY:-$API_KEY}" && export TRITONAI_API_KEY="${TRITONAI_API_KEY:-$API_KEY}"
 
+# Base agents (no hybrids): graph uses LLM+conversation; llm-vqvae uses VQ-VAE; memory-agent uses memory
 AGENTS=(graph llm-vqvae memory-agent)
 API_KEY="${API_KEY:-}"
 DIAGNOSTIC_CONFIG="${DIAGNOSTIC_CONFIG:-}"
@@ -46,11 +54,13 @@ get_agent_file() {
     esac
 }
 
-# 1. Categorize tasks
+# --- Step 1: Categorize tasks ---
+# Assigns skill/difficulty to envs; writes data/task_categories.json and data/evaluation_subset.json (20 envs, 5 per skill)
 echo "Step 1: Categorizing tasks..."
 python scripts/categorize_tasks.py -o data/task_categories.json
 
-# 2. Select diagnostic tasks
+# --- Step 2: Select diagnostic tasks ---
+# Picks one task per env for quick skill profiling; writes data/diagnostic_tasks.json
 echo "Step 2: Selecting diagnostic tasks..."
 if [[ -n "$DIAGNOSTIC_CONFIG" ]]; then
     python scripts/select_diagnostic_tasks.py --from-config "$DIAGNOSTIC_CONFIG" -o data/diagnostic_tasks.json
@@ -58,7 +68,8 @@ else
     python scripts/select_diagnostic_tasks.py -o data/diagnostic_tasks.json
 fi
 
-# 3. Run diagnostic tests
+# --- Step 3: Run diagnostic tests ---
+# Runs graph, llm-vqvae, memory-agent on diagnostic tasks only; writes logs/*_diagnostic.json
 echo "Step 3: Running diagnostic tests..."
 for agent in "${AGENTS[@]}"; do
     f=$(get_agent_file "$agent")
@@ -78,7 +89,8 @@ for agent in "${AGENTS[@]}"; do
         --output-metrics "logs/${agent}_diagnostic.json"
 done
 
-# 4. Full benchmark
+# --- Step 4: Full benchmark ---
+# Same agents on all 20 envs in evaluation_subset.json (longer runs for final scores)
 echo "Step 4: Full benchmark..."
 ENVS=$(python -c "import json; print(' '.join(json.load(open('data/evaluation_subset.json'))['envs']))")
 for agent in "${AGENTS[@]}"; do
@@ -97,7 +109,8 @@ for agent in "${AGENTS[@]}"; do
         $api_key_arg $extra
 done
 
-# 5. Transfer analysis
+# --- Step 5: Transfer analysis ---
+# Predicts full-task scores from diagnostic skill profiles; writes data/*_transfer.json
 echo "Step 5: Transfer analysis..."
 for agent in "${AGENTS[@]}"; do
     [[ -f "logs/${agent}_diagnostic.json" ]] || continue
@@ -107,7 +120,8 @@ for agent in "${AGENTS[@]}"; do
         -f "$dir" -c data/task_categories.json -o "data/${agent}_transfer.json" 2>/dev/null || true
 done
 
-# 6. Run hybrid agents
+# --- Step 6: Run hybrid agents ---
+# graph-vqvae, memory-react, full-hybrid (skipped if API_KEY not set; requires vqvae_checkpoint.pt)
 echo "Step 6: Running hybrid agents..."
 VQVAE_CKPT="latent-action/checkpoints/vqvae_checkpoint.pt"
 if [[ -z "$API_KEY" ]]; then
@@ -153,7 +167,8 @@ python benchmark.py --agent agents/hybrid_agents.py full-hybrid \
   --output-metrics logs/hybrid_full_diagnostic.json 2>/dev/null || true
 fi
 
-# 7. Generate plots including hybrids
+# --- Step 7: Generate plots ---
+# diagnostic_comparison.png, skill_profiles.png, hybrid_comparison.png in plots/
 echo "Step 7: Generating plots with hybrid results..."
 mkdir -p plots
 files=()

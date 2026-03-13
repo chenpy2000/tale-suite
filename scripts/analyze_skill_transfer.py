@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-# Predict full task scores from diagnostic scores. predicted = sum(weight[skill] * diagnostic[skill]).
+"""
+Predict full-task scores from diagnostic skill profiles.
+
+Uses a linear model: predicted_score = sum(skill_weight[skill] * diagnostic_score[skill])
+per task. Fits weights from task_categories.json and diagnostic JSON. Useful to extrapolate
+from quick diagnostic runs without running full benchmarks.
+
+Inputs:
+  - --diagnostic: logs/{agent}_diagnostic.json (skill_profile or diagnostic_results)
+  - --full-benchmark: logs dir or JSON with actual full-task scores
+  - --categories: data/task_categories.json (skill_weights per env)
+
+Output: data/{agent}_transfer.json — predictions, R², per-task actual vs predicted
+"""
 
 import argparse
 import json

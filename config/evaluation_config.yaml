@@ -1,4 +1,9 @@
-# Diagnostic tasks (TWCooking). Use: select_diagnostic_tasks.py --from-config config/evaluation_config.yaml
+# Evaluation config for TWCooking-only runs.
+# Use: select_diagnostic_tasks.py --from-config config/evaluation_config.yaml
+#
+# diagnostic_tasks: One task per skill/difficulty for diagnostic benchmarks.
+#   spatial/deductive/inductive/grounded: 5 tasks each (easy → very-hard)
+#   episodes: 1 for most; 5 for inductive (higher variance)
 diagnostic_tasks:
   spatial:
     - {task: "TWCookingLevel1", difficulty: "easy", episodes: 1}
@@ -28,11 +33,13 @@ diagnostic_tasks:
     - {task: "TWCookingLevel9", difficulty: "hard", episodes: 1}
     - {task: "TWCookingLevel10", difficulty: "very-hard", episodes: 1}
 
+# Diagnostic run settings (used when running with --diagnostic-config)
 diagnostic:
   nb_steps: 50
   track_improvement: true
 
-# Hybrid Agents
+# Hybrid agent definitions (for run_hybrid_evaluation.sh / weight sensitivity)
+# graph_vqvae: graph + VQ-VAE; memory_react: memory + ReAct; full_hybrid: all four
 hybrids:
   graph_vqvae:
     name: "graph-vqvae"

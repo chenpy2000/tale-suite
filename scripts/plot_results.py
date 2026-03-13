@@ -1,4 +1,13 @@
-# Plot diagnostic comparison and skill profiles from diagnostic JSON files.
+"""
+Plot diagnostic comparison and skill profiles from diagnostic JSON files.
+
+Generates PNG charts in plots/:
+  - diagnostic-comparison: Bar chart of agent scores per skill (agent vs agent)
+  - skill-profiles: Radar chart of per-skill scores (each agent as polygon with numeric labels)
+  - hybrid-comparison: Base agents vs hybrid agents (graph-vqvae, memory-react, full-hybrid)
+
+Input: logs/*_diagnostic.json (from benchmark.py --output-metrics)
+"""
 
 import argparse
 import glob
@@ -65,19 +74,30 @@ def diagnostic_comparison(files, out_dir):
 
 
 def skill_profiles(files, out_dir):
+    """Radar chart: each agent as a polygon with scores (0–100) on spatial, deductive, inductive, grounded."""
     data = _load(files)
     if not data:
         raise ValueError("No data")
-    fig, ax = plt.subplots(figsize=(10, 6))
-    x = np.arange(len(SKILLS))
+    n_skills = len(SKILLS)
+    angles = np.linspace(0, 2 * np.pi, n_skills, endpoint=False).tolist()
+    angles += angles[:1]  # close polygon
+    fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(projection="polar"))
     for i, (name, scores, _) in enumerate(data):
-        ax.plot(x, [scores[s] * 100 for s in SKILLS], marker="o", lw=2, color=COLORS[i % len(COLORS)], label=name)
-    ax.set_ylabel("Score (%)")
-    ax.set_xlabel("Skill")
-    ax.set_xticks(x)
+        vals = [scores[s] * 100 for s in SKILLS]
+        vals += vals[:1]
+        color = COLORS[i % len(COLORS)]
+        ax.plot(angles, vals, "o-", lw=2, color=color, label=name)
+        ax.fill(angles, vals, alpha=0.2, color=color)
+        # Add numeric score labels at each vertex (offset per agent to avoid overlap)
+        label_offset = 5 + i * 6
+        for theta, r in zip(angles[:-1], vals[:-1]):
+            ax.text(theta, min(r + label_offset, 100), f"{r:.0f}", ha="center", va="bottom", fontsize=8, color=color)
+    ax.set_xticks(angles[:-1])
     ax.set_xticklabels([LABELS[s] for s in SKILLS])
-    ax.set_ylim(0, 105)
-    ax.legend()
+    ax.set_ylim(0, 100)
+    ax.set_yticks([25, 50, 75, 100])
+    ax.set_yticklabels(["25", "50", "75", "100"])
+    ax.legend(loc="upper right", bbox_to_anchor=(1.3, 1.1))
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
     path = Path(out_dir) / "skill_profiles.png"

@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-# Filter collected trajectories before VQ-VAE training.
-# Drops episodes that are too short, too low-reward, or too repetitive.
-# With --prune-passive: removes redundant examine/look steps within kept episodes
-# so the VQ-VAE trains on higher-quality action sequences.
+"""
+Filter collected trajectories before VQ-VAE training.
+
+Drops episodes that are too short (--min-length), too low-reward (--min-reward),
+or too repetitive (--max-repetition-rate). With --prune-passive: removes redundant
+examine/look steps within kept episodes so the VQ-VAE trains on higher-quality
+action sequences.
+
+Input: data/trajectories_raw/ or --input-dir (episode_*.json)
+Output: data/trajectories_cleaned/ or --output-dir
+"""
 
 import argparse
 import json

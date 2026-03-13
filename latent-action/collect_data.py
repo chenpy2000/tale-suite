@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-# Runs benchmark.py per env, converts output to episode JSONs.
+"""
+Collect trajectories for VQ-VAE training.
+
+Runs rule-based collectors (diverse, noisy-walkthrough) via benchmark.py on each env.
+No LLM/API key needed. Outputs episode_*.json per env with (obs, action) steps.
+
+Collectors:
+  - diverse-collector: Exploration with varied action selection
+  - noisy-walkthrough: Walkthrough with --noise-rate (e.g. 0.15) to inject mistakes
+
+Output: data/trajectories/{collector}/ or --output-dir
+"""
 
 import argparse
 import json

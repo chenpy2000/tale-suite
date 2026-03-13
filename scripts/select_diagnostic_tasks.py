@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-# Select diagnostic tasks for skill evaluation. Default: evaluation_subset.json. Override: --config or --from-config.
+"""
+Select diagnostic tasks for skill evaluation.
+
+Picks one task per env from the evaluation subset so diagnostic runs cover all 4 skills
+evenly. Used for quick skill profiling before full benchmarks.
+
+Inputs:
+  - Default: data/evaluation_subset.json (from categorize_tasks.py)
+  - Override: --from-config for TWCooking-only (config/evaluation_config.yaml)
+
+Output: data/diagnostic_tasks.json — {skill: [{task, difficulty, episodes}, ...]}
+"""
 
 import argparse
 import json

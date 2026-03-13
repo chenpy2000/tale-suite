@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
-# Train VQ-VAE on (obs, action) windows from trajectories_cleaned.
-# Sliding windows over episodes; reconstruct next action; codebook reset for dead codes.
+"""
+Train VQ-VAE on (obs, action) windows from cleaned trajectories.
+
+Uses sliding windows over episodes; reconstructs next action. Learns patterns like
+"after examining the cookbook, taking it is often good." At inference, scores
+admissible actions to guide the LLM.
+
+Important: --window-size must match what llm_vqvae_agent uses (default 5).
+
+Input: data/trajectories_cleaned/ (episode_*.json)
+Output: checkpoints/vqvae_checkpoint.pt
+"""
 
 import argparse
 import json

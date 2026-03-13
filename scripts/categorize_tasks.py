@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-# Categorize TALES tasks by skill (spatial, deductive, inductive, grounded). Outputs task_categories.json and evaluation_subset.json.
+"""
+Categorize TALES tasks by skill and difficulty.
+
+Scans all registered TALES environments (Jericho, ALFWorld, ScienceWorld, TextWorld, etc.)
+and assigns each to a primary skill (spatial, deductive, inductive, grounded) and difficulty
+(easy/medium/hard) using env-family heuristics (e.g. TWCooking level → difficulty).
+
+Outputs:
+  - task_categories.json: {env_name: {primary_skill, difficulty, skill_weights}}
+  - evaluation_subset.json: 20 envs (5 per skill) for evaluation benchmarks
+"""
 
 import argparse
 import json
