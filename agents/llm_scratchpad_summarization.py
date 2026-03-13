@@ -28,6 +28,22 @@ SYSTEM_PROMPT = (
 )
 
 SCRATCHPAD = "[Scratchpad: (empty)]"
+# For gpt-4o-mini:
+# SCRATCHPAD = "[Scratchpad: \nAlways read any documents or items found for clues or information. Collect useful items to aid in your progress. Avoid dangerous areas without preparation.]"
+# SCRATCHPAD = "[Scratchpad: \nIf stuck in a closet, repeatedly attempt to go south to exit. If unable to exit, explore other rooms or check for items that might help. If you find yourself in a loop, try different commands or explore other areas.]"
+# SCRATCHPAD = "[Scratchpad: \nIf you enter a closet, try to find a way out immediately.]"
+# SCRATCHPAD = "[Scratchpad: \nAlways pick up items to increase your score. Avoid dangerous areas unless prepared. Use items wisely to navigate challenges. If you encounter a dead end, explore other options. If you have an item, remember you can't pick it up again.]"
+# SCRATCHPAD = "[Scratchpad: \nIf in a closet, look for other exits or return to the last known area.]"
+# SCRATCHPAD = "[Scratchpad: \nAlways check for items that may seem unimportant, as they could be crucial to solving the case.]"
+# SCRATCHPAD = "[Scratchpad: \nIf stuck in a closet, try to explore other rooms or directions instead of repeating the same command.]"
+
+# For gpt-4o:
+# SCRATCHPAD = "[Scratchpad: \n1. Collect items that may be useful later. 2. Explore all accessible areas for clues and items. 3. Use items creatively to solve problems or progress. 4. Pay attention to character interactions for hints. 5. Keep track of directions and locations to avoid getting lost. 6. Use the 'look' command to gather more information about your surroundings. 7. Use 'help' to understand available commands. 8. Restart if necessary to try]"
+# SCRATCHPAD = "[Scratchpad: \n1. Always collect items that may be useful later. 2. Use your badge to gain access to restricted areas. 3. Avoid dangerous situations unless prepared. 4. Explore all directions in new areas to gather information. 5. Prioritize visiting crime scenes for clues. 6. Keep track of your score to measure progress. 7. Restart if you die to try different strategies. 8. Read all documents for potential hints. 9. Use weapons]"
+# SCRATCHPAD = "[Scratchpad: \n1. Always collect items that may be useful later. 2. Use your badge to gain access to restricted areas. 3. Avoid dangerous situations unless prepared. 4. Explore all directions in new areas to gather information. 5. Prioritize visiting crime scenes for clues. 6. Keep track of your score to measure progress. 7. Restart if you die to try different strategies. 8. Read all documents for potential hints. 9. Use weapons]"
+# SCRATCHPAD = "[Scratchpad: \n1. Always collect items that may be useful later. 2. Use your badge to gain access to restricted areas. 3. Avoid dangerous situations unless prepared. 4. Explore all directions in new areas to gather information. 5. Prioritize visiting crime scenes for clues. 6. Keep track of your score to measure progress. 7. Restart if you die to try different strategies. 8. Read all documents for potential hints. 9. Use weapons]"
+
+# For gpt-4.5-preview:
 
 class LLMAgent(tales.Agent):
 
