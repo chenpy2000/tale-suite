@@ -31,9 +31,12 @@ def compute_doom_loop_count(rollouts_df: pd.DataFrame, threshold: int = 3) -> in
     stalls = []
 
     for _, row in rollouts_df.iterrows():
-        action = row.get("Action", "")
-        feedback = row.get("Feedback", "")
-        action_feedback_pair = (action, feedback)
+        action = str(row.get("Action", "") or "").strip()
+        feedback = str(row.get("Feedback", "") or "").strip()
+        score = row.get("Score", None)
+
+        normalized_feedback = " ".join(feedback.lower().split())
+        action_feedback_pair = (action.lower(), normalized_feedback)
 
         if action_feedback_pair == current_action_feedback:
             current_streak += 1
@@ -43,14 +46,19 @@ def compute_doom_loop_count(rollouts_df: pd.DataFrame, threshold: int = 3) -> in
             current_action_feedback = action_feedback_pair
             current_streak = 1
 
+        score_unchanged = previous_score is None or score == previous_score
+        feedback_unchanged = (
+            previous_feedback != "" and normalized_feedback == previous_feedback
+        )
+        stalls.append(score_unchanged and feedback_unchanged)
+        actions.append(action.lower())
+
         previous_feedback = normalized_feedback
         previous_score = score
 
-    # Check if the episode ended on a doom loop
     if current_streak > threshold:
         doom_loop_count += 1
 
-    # Detect alternating ABAB no-progress loops.
     i = 0
     while i + 3 < len(actions):
         a, b, c, d = actions[i : i + 4]
