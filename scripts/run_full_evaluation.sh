@@ -32,6 +32,9 @@ done
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_ROOT="$(pwd)"
 
+# Suppress HuggingFace tokenizers fork warning (benchmark spawns envs/subprocesses after tokenizer load)
+export TOKENIZERS_PARALLELISM=false
+
 # Use project's .llm/ for extra-openai-models.yaml (api-gpt-oss-120b, api-llama-4-scout, etc.)
 export LLM_USER_PATH="${LLM_USER_PATH:-$PROJECT_ROOT/.llm}"
 
@@ -128,8 +131,8 @@ if [[ -z "$API_KEY" ]]; then
     echo "Skipping hybrids: API_KEY not set"
 else
 
-# Common args for equalized comparison
-COMMON="--admissible-commands --seed 20241001"
+# Common args for equalized comparison (--conversation and --llm required by graph/react)
+COMMON="--admissible-commands --seed 20241001 --conversation --llm api-gpt-oss-120b"
 
 # Graph + VQ-VAE (full benchmark)
 python benchmark.py --agent agents/hybrid_agents.py graph-vqvae \
@@ -147,23 +150,23 @@ python benchmark.py --agent agents/hybrid_agents.py graph-vqvae \
 # Memory + ReAct (full + diagnostic)
 python benchmark.py --agent agents/hybrid_agents.py memory-react \
   --api-key "$API_KEY" --memory-weight 0.5 --react-weight 0.5 \
-  --conversation $COMMON --envs $ENVS --nb-steps $NB_STEPS 2>/dev/null || true
+  $COMMON --envs $ENVS --nb-steps $NB_STEPS 2>/dev/null || true
 
 python benchmark.py --agent agents/hybrid_agents.py memory-react \
   --api-key "$API_KEY" --memory-weight 0.5 --react-weight 0.5 \
-  --conversation $COMMON --diagnostic-tests data/diagnostic_tasks.json --nb-steps ${NB_STEPS_DIAG} \
+  $COMMON --diagnostic-tests data/diagnostic_tasks.json --nb-steps ${NB_STEPS_DIAG} \
   --output-metrics logs/hybrid_mr_diagnostic.json 2>/dev/null || true
 
 # Full Hybrid (full + diagnostic)
 python benchmark.py --agent agents/hybrid_agents.py full-hybrid \
   --api-key "$API_KEY" --vqvae-checkpoint "$VQVAE_CKPT" \
   --graph-weight 0.3 --vqvae-weight 0.3 --memory-weight 0.2 --react-weight 0.2 \
-  --conversation $COMMON --envs $ENVS --nb-steps $NB_STEPS 2>/dev/null || true
+  $COMMON --envs $ENVS --nb-steps $NB_STEPS 2>/dev/null || true
 
 python benchmark.py --agent agents/hybrid_agents.py full-hybrid \
   --api-key "$API_KEY" --vqvae-checkpoint "$VQVAE_CKPT" \
   --graph-weight 0.3 --vqvae-weight 0.3 --memory-weight 0.2 --react-weight 0.2 \
-  --conversation $COMMON --diagnostic-tests data/diagnostic_tasks.json --nb-steps ${NB_STEPS_DIAG} \
+  $COMMON --diagnostic-tests data/diagnostic_tasks.json --nb-steps ${NB_STEPS_DIAG} \
   --output-metrics logs/hybrid_full_diagnostic.json 2>/dev/null || true
 fi
 

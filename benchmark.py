@@ -1,10 +1,14 @@
+import os
+
+# Suppress HuggingFace tokenizers fork warning (env creation can fork after tokenizer load)
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
 import argparse
 import datetime
 import glob
 import importlib
 import json
 import logging
-import os
 import sys
 import time
 from functools import partial

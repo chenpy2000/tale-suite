@@ -6,6 +6,7 @@ class HybridAgent(tales.Agent):
     Base class for hybrid agents that combine multiple agent scores.
 
     Subclasses specify which agents to combine and weights.
+    Uses act() on each component (full LLM reasoning) and weighted voting to combine.
     """
 
     def __init__(self, **kwargs):
@@ -52,34 +53,56 @@ class HybridAgent(tales.Agent):
         print(f"Initialized hybrid with components: {list(self.component_agents.keys())}")
         print(f"Normalized weights: {self.weights}")
 
-    def score_actions(self, obs, admissible_commands, info):
-        """Combine scores from all component agents."""
-        combined_scores = {action: 0.0 for action in admissible_commands}
-
-        for name, agent in self.component_agents.items():
-            agent_scores = agent.score_actions(obs, admissible_commands, info)
-            weight = self.weights[name]
-
-            for action in admissible_commands:
-                combined_scores[action] += weight * agent_scores.get(action, 0.0)
-
-        return combined_scores
-
     def act(self, obs, reward, done, info):
-        """Select action with highest combined score."""
-        admissible = info.get("admissible_commands", [])
+        """
+        Call act() on each component (full LLM reasoning), then weighted voting.
+        Each agent proposes an action; we sum weights per action and pick the highest.
+        """
+        admissible = list(info.get("admissible_commands") or [])
         if not admissible:
             return "look", {}
 
-        scores = self.score_actions(obs, admissible, info)
-        best_action = max(scores, key=scores.get)
+        votes = {}  # action -> sum of weights from agents that proposed it
+        component_actions = {}
 
-        # Log component contributions for debugging
-        stats = {
-            "combined_scores": scores,
-            "component_weights": self.weights,
-        }
+        for name, agent in self.component_agents.items():
+            weight = self.weights[name]
+            try:
+                action, _ = agent.act(obs, reward, done, info)
+                action = str(action).strip() if action else ""
+                # Align to admissible (case-insensitive match)
+                matched = None
+                for adm in admissible:
+                    if adm and action and adm.lower() == action.lower():
+                        matched = adm
+                        break
+                if not matched and action:
+                    for adm in admissible:
+                        if adm and action.lower() in adm.lower() or adm.lower() in action.lower():
+                            matched = adm
+                            break
+                if matched:
+                    votes[matched] = votes.get(matched, 0.0) + weight
+                    component_actions[name] = matched
+            except Exception as e:
+                component_actions[name] = f"(error: {e})"
 
+        if not votes:
+            # Fallback: use first component's act or first admissible
+            for name, agent in self.component_agents.items():
+                try:
+                    action, _ = agent.act(obs, reward, done, info)
+                    action = str(action).strip()
+                    for adm in admissible:
+                        if adm and action and adm.lower() == action.lower():
+                            return adm, {"component_actions": component_actions}
+                    break
+                except Exception:
+                    pass
+            return admissible[0], {"component_actions": component_actions}
+
+        best_action = max(votes, key=votes.get)
+        stats = {"votes": votes, "component_actions": component_actions, "component_weights": dict(self.weights)}
         return best_action, stats
 
     def reset(self, obs, info, env_name=None):

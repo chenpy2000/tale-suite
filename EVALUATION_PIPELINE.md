@@ -260,24 +260,49 @@ python benchmark.py --agent agents/memory_agent.py memory-agent --envs $ENVS \
 
 ### 5. Hybrid agents (standard weights)
 
-Runs graph-vqvae (graph + VQ-VAE), memory-react (memory + ReAct), and full-hybrid (all four components). Requires VQ-VAE checkpoint and API key.
+Runs graph-vqvae (graph + VQ-VAE), memory-react (memory + ReAct), and full-hybrid (all four components). Requires VQ-VAE checkpoint and API key. Each hybrid calls `act()` on every component (full LLM reasoning) and uses weighted voting.
 
 ```bash
+ENVS=$(python -c "import json; print(' '.join(json.load(open('data/evaluation_subset.json'))['envs']))")
 VQVAE="latent-action/checkpoints/vqvae_checkpoint.pt"
-COMMON="--admissible-commands --seed 20241001"
+COMMON="--admissible-commands --seed 20241001 --conversation --llm api-gpt-oss-120b"
 
+# Graph + VQ-VAE (full benchmark)
 python benchmark.py --agent agents/hybrid_agents.py graph-vqvae --envs $ENVS \
   --api-key "your-tritonai-key" --vqvae-checkpoint $VQVAE \
   --graph-weight 0.6 --vqvae-weight 0.4 $COMMON --nb-steps 100
 
+# Memory + ReAct
 python benchmark.py --agent agents/hybrid_agents.py memory-react --envs $ENVS \
   --api-key "your-tritonai-key" --memory-weight 0.5 --react-weight 0.5 \
-  --conversation $COMMON --nb-steps 100
+  $COMMON --nb-steps 100
 
+# Full hybrid (all four: graph, vqvae, memory, react)
 python benchmark.py --agent agents/hybrid_agents.py full-hybrid --envs $ENVS \
   --api-key "your-tritonai-key" --vqvae-checkpoint $VQVAE \
   --graph-weight 0.3 --vqvae-weight 0.3 --memory-weight 0.2 --react-weight 0.2 \
-  --conversation $COMMON --nb-steps 100
+  $COMMON --nb-steps 100
+```
+
+**Diagnostic only** (quick skill profiling):
+
+```bash
+python benchmark.py --agent agents/hybrid_agents.py graph-vqvae \
+  --api-key "your-tritonai-key" --vqvae-checkpoint $VQVAE \
+  --graph-weight 0.6 --vqvae-weight 0.4 $COMMON \
+  --diagnostic-tests data/diagnostic_tasks.json --nb-steps 50 \
+  --output-metrics logs/hybrid_gv_diagnostic.json
+
+python benchmark.py --agent agents/hybrid_agents.py memory-react \
+  --api-key "your-tritonai-key" --memory-weight 0.5 --react-weight 0.5 \
+  $COMMON --diagnostic-tests data/diagnostic_tasks.json --nb-steps 50 \
+  --output-metrics logs/hybrid_mr_diagnostic.json
+
+python benchmark.py --agent agents/hybrid_agents.py full-hybrid \
+  --api-key "your-tritonai-key" --vqvae-checkpoint $VQVAE \
+  --graph-weight 0.3 --vqvae-weight 0.3 --memory-weight 0.2 --react-weight 0.2 \
+  $COMMON --diagnostic-tests data/diagnostic_tasks.json --nb-steps 50 \
+  --output-metrics logs/hybrid_full_diagnostic.json
 ```
 
 ### 6. Skill transfer analysis
