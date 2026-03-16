@@ -74,34 +74,31 @@ ENV_SKILL_MAP = _build_env_skill_map()
 # ---------------------------------------------------------------------------
 
 _PALETTE = [
-    "#3498db",  # blue       — VQ-VAE / default
-    "#2ecc71",  # green      — Graph
-    "#e74c3c",  # red        — ReAct
-    "#f39c12",  # orange     — Memory
-    "#9b59b6",  # purple     — Graph+VQ-VAE hybrid
-    "#1abc9c",  # teal       — Memory+ReAct hybrid
+    "#3498db",  # blue
+    "#e74c3c",  # red
+    "#2ecc71",  # green
+    "#f39c12",  # orange
+    "#9b59b6",  # purple
+    "#1abc9c",  # teal
     "#e67e22",  # dark orange
     "#34495e",  # dark grey
+    "#7f8c8d",  # grey
+    "#8e44ad",  # violet
+    "#16a085",  # turquoise
+    "#c0392b",  # dark red
 ]
 
-_KEYWORD_COLORS = {
-    "graph": "#2ecc71",
-    "react": "#e74c3c",
-    "memory": "#f39c12",
-    "graph+vq": "#9b59b6",
-    "graph-vqvae": "#9b59b6",
-    "hybrid": "#9b59b6",
-    "full": "#1abc9c",
-    "random": "#95a5a6",
-}
 
 def _agent_color(name, idx):
-    """Use keyword colors for known agent types; fall back to palette index otherwise."""
-    low = name.lower()
-    for kw, col in _KEYWORD_COLORS.items():
-        if kw in low:
-            return col
-    return _PALETTE[idx % len(_PALETTE)]
+    """Assign a (nearly) unique color per agent index.
+
+    For up to len(_PALETTE) agents, uses the fixed hex palette.
+    Beyond that, falls back to matplotlib's tab20 colormap.
+    """
+    if idx < len(_PALETTE):
+        return _PALETTE[idx]
+    cmap = plt.get_cmap("tab20")
+    return cmap(idx % 20)
 
 # ---------------------------------------------------------------------------
 # Parsing
@@ -504,6 +501,116 @@ def plot_step_budget(agent_specs: list, out_path: Path):
 
 
 # ---------------------------------------------------------------------------
+# Step Budget from runs/ text files
+# ---------------------------------------------------------------------------
+
+_RUN_NAME_RE = re.compile(
+    r"^(?:cooking_)?(?P<agent>[A-Za-z0-9\-]+)_(?P<steps>\d+)\.txt$"
+)
+
+
+def plot_step_budget_from_runs(patterns: list, out_path: Path, metric: str = "score"):
+    """
+    Build a step-budget line plot directly from text files in runs/.
+
+    Expected naming pattern (in runs/):
+      [cooking_]AGENT_NB_STEPS.txt
+        e.g., vqvae_50.txt, cooking_graph_100.txt, react_200.txt
+
+    For each matching file, we parse the run, extract:
+      - nb_steps from filename
+      - mean score from parsed text
+    and then plot mean score vs nb_steps (one line per agent).
+    """
+    runs_dir = Path("runs")
+    if not runs_dir.exists():
+        print(f"[error] runs/ directory not found at {runs_dir.resolve()}", file=sys.stderr)
+        return
+
+    # Expand simple globs like runs/vqvae_*.txt, runs/*_50.txt
+    files = []
+    for pat in patterns:
+        p = Path(pat)
+        if p.is_file():
+            files.append(p)
+        else:
+            # Treat as glob relative to repo root
+            for fp in Path(".").glob(pat):
+                if fp.is_file():
+                    files.append(fp)
+
+    if not files:
+        print("[error] No matching files for patterns:", patterns, file=sys.stderr)
+        return
+
+    agents = {}
+    for path in files:
+        name = path.name
+        m = _RUN_NAME_RE.match(name)
+        if not m:
+            print(f"[warn] Skipping {name} (does not match [cooking_]agent_steps.txt pattern)", file=sys.stderr)
+            continue
+        agent = m.group("agent")
+        steps = int(m.group("steps"))
+        text = path.read_text(encoding="utf-8", errors="replace")
+        run = parse_run(text)
+        if not run["envs"]:
+            print(f"[warn] Parsed 0 envs from {name}", file=sys.stderr)
+            continue
+        score_pct = run["mean_norm_score"] * 100.0
+        agents.setdefault(agent, []).append((steps, score_pct))
+
+    if not agents:
+        print("[error] No usable runs parsed; nothing to plot.", file=sys.stderr)
+        return
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    all_y = []
+    for i, (agent, pts) in enumerate(sorted(agents.items())):
+        pts = sorted(pts, key=lambda p: p[0])
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]  # mean score (%) by default
+        all_y.extend(ys)
+        color = _agent_color(agent, i)
+        marker = "D" if "hybrid" in agent.lower() else "o"
+        ax.plot(xs, ys, marker=marker, lw=2.5, markersize=9,
+                color=color, label=agent, alpha=0.9)
+        for x_val, y_val in zip(xs, ys):
+            ax.annotate(f"{y_val:.1f}%", (x_val, y_val),
+                        textcoords="offset points", xytext=(0, 8),
+                        ha="center", fontsize=8, color=color)
+
+    ax.set_xlabel("Step Budget (nb_steps)", fontsize=13, fontweight="bold")
+    if metric == "wall-time":
+        ax.set_ylabel("Wall Time (minutes)", fontsize=13, fontweight="bold")
+        ax.set_title("Wall Time vs Step Budget", fontsize=15, fontweight="bold")
+    elif metric == "efficiency":
+        ax.set_ylabel("Score % per Minute", fontsize=13, fontweight="bold")
+        ax.set_title("Score Efficiency vs Step Budget", fontsize=15, fontweight="bold")
+    else:
+        ax.set_ylabel("Mean Normalized Score (%)", fontsize=13, fontweight="bold")
+        ax.set_title("Agent Performance vs Step Budget", fontsize=15, fontweight="bold")
+    ax.legend(fontsize=10, loc="upper left", framealpha=0.9)
+    if all_y:
+        y_top = max(all_y) * 1.25
+        if metric == "efficiency":
+            # efficiency values tend to be small; don't clamp to 100
+            ax.set_ylim(0, max(all_y) * 1.5)
+        else:
+            ax.set_ylim(0, max(5.0, min(105.0, y_top)))
+    ax.grid(True, alpha=0.3, linestyle="--")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    plt.tight_layout()
+
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  Saved {out_path}")
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -580,6 +687,30 @@ def main():
         help="Output PNG path (default: plots/step_budget.png)",
     )
 
+    # step-budget-from-runs subcommand
+    s2 = sub.add_parser(
+        "step-budget-from-runs",
+        help="Line chart of score vs step budget using runs/[cooking_]agent_steps.txt files.",
+    )
+    s2.add_argument(
+        "patterns",
+        nargs="+",
+        metavar="GLOB",
+        help="Glob(s) for run files, e.g. 'runs/vqvae_*.txt' 'runs/graph_*.txt'",
+    )
+    s2.add_argument(
+        "-o", "--output",
+        default="plots/step_budget_runs.png",
+        metavar="FILE",
+        help="Output PNG path (default: plots/step_budget_runs.png)",
+    )
+    s2.add_argument(
+        "--metric",
+        choices=["score", "wall-time", "efficiency"],
+        default="score",
+        help="Y-axis: 'score' (mean %), 'wall-time' (minutes), or 'efficiency' (score %% per minute).",
+    )
+
     args = p.parse_args()
 
     print(f"\n{'='*60}")
@@ -587,10 +718,14 @@ def main():
         print(f"Comparing {len(args.inputs)} agent(s)")
         print("="*60)
         cmd_compare(args)
-    else:
+    elif args.cmd == "step-budget":
         print(f"Step-budget plot for {len(args.inputs)} agent(s)")
         print("="*60)
         cmd_step_budget(args)
+    else:
+        print(f"Step-budget-from-runs plot using patterns: {args.patterns}")
+        print("="*60)
+        plot_step_budget_from_runs(args.patterns, args.output, metric=args.metric)
 
 
 if __name__ == "__main__":

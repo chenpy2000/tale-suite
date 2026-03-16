@@ -1,23 +1,23 @@
-2026-03-14 00:03:06,060: JerichoEnv905                          Steps:   50/  50  Time: 0:10:39   0 resets  Score:   0/  1 ( 0.00%)  TokenEff:     0.00  DoomLoop:    0
-2026-03-14 00:03:06,062: JerichoEnvAcorncourt                   Steps:   50/  50  Time: 0:11:23   0 resets  Score:   0/ 30 ( 0.00%)  TokenEff:     0.00  DoomLoop:    0
-2026-03-14 00:11:46,085: JerichoEnvAdvent                       Steps:   50/  50  Time: 0:08:39   0 resets  Score:  36/350 (10.29%)  TokenEff:     0.00  DoomLoop:    0
-2026-03-14 00:22:20,978: JerichoEnvAdventureland                Steps:   50/  50  Time: 0:10:34   0 resets  Score:   0/100 ( 0.00%)  TokenEff:     0.00  DoomLoop:    0
-2026-03-14 00:33:09,588: JerichoEnvAfflicted                    Steps:   50/  50  Time: 0:10:48   0 resets  Score:   0/ 75 ( 0.00%)  TokenEff:     0.00  DoomLoop:    2
-2026-03-14 00:34:07,279: ALFWorldLookAtObjInLightSeen           Steps:    6/  50  Time: 0:00:57   0 resets  Score:   1/  1 (100.00%)  TokenEff:     0.00  DoomLoop:    0
-2026-03-14 00:43:28,673: TWCookingLevel10                       Steps:   50/  50  Time: 0:09:21   0 resets  Score:   0/ 11 ( 0.00%)  TokenEff:     0.00  DoomLoop:    1
-2026-03-14 00:51:25,188: ALFWorldLookAtObjInLightUnseen         Steps:   50/  50  Time: 0:07:56   0 resets  Score:   0/  1 ( 0.00%)  TokenEff:     0.00  DoomLoop:    3
-2026-03-14 01:04:44,286: ScienceWorldBoil                       Steps:   50/  50  Time: 0:13:16   0 resets  Score:   2/100 ( 2.00%)  TokenEff:     0.00  DoomLoop:    4
-2026-03-14 01:19:50,118: ScienceWorldMelt                       Steps:   50/  50  Time: 0:15:03   0 resets  Score:   0/100 ( 0.00%)  TokenEff:     0.00  DoomLoop:    3
-2026-03-14 01:21:49,135: TWXSimonSays10                         Steps:   20/  50  Time: 0:01:58   2 resets  Score: 100/100 (100.00%)  TokenEff:     0.00  DoomLoop:    0
-2026-03-14 01:28:39,670: TWXCookingWorld                        Steps:   50/  50  Time: 0:06:49   1 resets  Score:  42/100 (42.00%)  TokenEff:     0.00  DoomLoop:    1
-2026-03-14 01:33:54,751: TWXSimonSays100                        Steps:   50/  50  Time: 0:05:14   5 resets  Score:  14/100 (14.00%)  TokenEff:     0.00  DoomLoop:    0
-2026-03-14 01:35:31,187: TWXSimonSaysWithMemory10               Steps:   15/  50  Time: 0:01:35   1 resets  Score: 100/100 (100.00%)  TokenEff:     0.00  DoomLoop:    0
-2026-03-14 01:40:22,218: TWXSimonSays50                         Steps:   50/  50  Time: 0:04:50   6 resets  Score:  28/100 (28.00%)  TokenEff:     0.00  DoomLoop:    0
-2026-03-14 01:47:48,410: ALFWorldPickAndPlaceSimpleSeen         Steps:   50/  50  Time: 0:07:26   0 resets  Score:   0/  1 ( 0.00%)  TokenEff:     0.00  DoomLoop:    1
-2026-03-14 01:54:01,559: ALFWorldPickCleanThenPlaceInRecepSeen  Steps:   50/  50  Time: 0:06:13   0 resets  Score:   0/  1 ( 0.00%)  TokenEff:     0.00  DoomLoop:    1
-2026-03-14 02:01:10,529: ALFWorldPickHeatThenPlaceInRecepSeen   Steps:   50/  50  Time: 0:07:08   0 resets  Score:   0/  1 ( 0.00%)  TokenEff:     0.00  DoomLoop:    2
-2026-03-14 02:08:56,754: ALFWorldPickCoolThenPlaceInRecepSeen   Steps:   50/  50  Time: 0:07:46   0 resets  Score:   0/  1 ( 0.00%)  TokenEff:     0.00  DoomLoop:    4
-2026-03-14 02:15:26,712: ALFWorldPickTwoObjAndPlaceSeen         Steps:   50/  50  Time: 0:06:29   0 resets  Score:   0/  1 ( 0.00%)  TokenEff:     0.00  DoomLoop:    1
+JerichoEnv905                          Steps:   50/  50  Time: 0:10:39   0 resets  Score:   0/  1 ( 0.00%)  TokenEff:     0.00  DoomLoop:    0
+JerichoEnvAcorncourt                   Steps:   50/  50  Time: 0:11:23   0 resets  Score:   0/ 30 ( 0.00%)  TokenEff:     0.00  DoomLoop:    0
+JerichoEnvAdvent                       Steps:   50/  50  Time: 0:08:39   0 resets  Score:  36/350 (10.29%)  TokenEff:     0.00  DoomLoop:    0
+JerichoEnvAdventureland                Steps:   50/  50  Time: 0:10:34   0 resets  Score:   0/100 ( 0.00%)  TokenEff:     0.00  DoomLoop:    0
+JerichoEnvAfflicted                    Steps:   50/  50  Time: 0:10:48   0 resets  Score:   0/ 75 ( 0.00%)  TokenEff:     0.00  DoomLoop:    2
+ALFWorldLookAtObjInLightSeen           Steps:    6/  50  Time: 0:00:57   0 resets  Score:   1/  1 (100.00%)  TokenEff:     0.00  DoomLoop:    0
+TWCookingLevel10                       Steps:   50/  50  Time: 0:09:21   0 resets  Score:   0/ 11 ( 0.00%)  TokenEff:     0.00  DoomLoop:    1
+ALFWorldLookAtObjInLightUnseen         Steps:   50/  50  Time: 0:07:56   0 resets  Score:   0/  1 ( 0.00%)  TokenEff:     0.00  DoomLoop:    3
+ScienceWorldBoil                       Steps:   50/  50  Time: 0:13:16   0 resets  Score:   2/100 ( 2.00%)  TokenEff:     0.00  DoomLoop:    4
+ScienceWorldMelt                       Steps:   50/  50  Time: 0:15:03   0 resets  Score:   0/100 ( 0.00%)  TokenEff:     0.00  DoomLoop:    3
+TWXSimonSays10                         Steps:   20/  50  Time: 0:01:58   2 resets  Score: 100/100 (100.00%)  TokenEff:     0.00  DoomLoop:    0
+TWXCookingWorld                        Steps:   50/  50  Time: 0:06:49   1 resets  Score:  42/100 (42.00%)  TokenEff:     0.00  DoomLoop:    1
+TWXSimonSays100                        Steps:   50/  50  Time: 0:05:14   5 resets  Score:  14/100 (14.00%)  TokenEff:     0.00  DoomLoop:    0
+TWXSimonSaysWithMemory10               Steps:   15/  50  Time: 0:01:35   1 resets  Score: 100/100 (100.00%)  TokenEff:     0.00  DoomLoop:    0
+TWXSimonSays50                         Steps:   50/  50  Time: 0:04:50   6 resets  Score:  28/100 (28.00%)  TokenEff:     0.00  DoomLoop:    0
+ALFWorldPickAndPlaceSimpleSeen         Steps:   50/  50  Time: 0:07:26   0 resets  Score:   0/  1 ( 0.00%)  TokenEff:     0.00  DoomLoop:    1
+ALFWorldPickCleanThenPlaceInRecepSeen  Steps:   50/  50  Time: 0:06:13   0 resets  Score:   0/  1 ( 0.00%)  TokenEff:     0.00  DoomLoop:    1
+ALFWorldPickHeatThenPlaceInRecepSeen   Steps:   50/  50  Time: 0:07:08   0 resets  Score:   0/  1 ( 0.00%)  TokenEff:     0.00  DoomLoop:    2
+ALFWorldPickCoolThenPlaceInRecepSeen   Steps:   50/  50  Time: 0:07:46   0 resets  Score:   0/  1 ( 0.00%)  TokenEff:     0.00  DoomLoop:    4
+ALFWorldPickTwoObjAndPlaceSeen         Steps:   50/  50  Time: 0:06:29   0 resets  Score:   0/  1 ( 0.00%)  TokenEff:     0.00  DoomLoop:    1
 
 Mean score (over 20 games) =   19.81% of total possible
 Total time   9254.20 seconds
