@@ -1,0 +1,15 @@
+TWCookingLevel1   Steps:   18/  50  Time: 0:01:52   1 resets  Score:   3/  3 (100.00%)  TokenEff:     0.00  DoomLoop:    0
+TWCookingLevel2   Steps:   21/  50  Time: 0:01:48   1 resets  Score:   4/  4 (100.00%)  TokenEff:     0.00  DoomLoop:    0
+TWCookingLevel3   Steps:   50/  50  Time: 0:04:45   4 resets  Score:   2/  4 (50.00%)  TokenEff:     0.00  DoomLoop:    0
+TWCookingLevel4   Steps:   33/  50  Time: 0:03:59   2 resets  Score:   3/  3 (100.00%)  TokenEff:     0.00  DoomLoop:    0
+TWCookingLevel5   Steps:   50/  50  Time: 0:06:04   1 resets  Score:   1/  3 (33.33%)  TokenEff:     0.00  DoomLoop:    3
+TWCookingLevel6   Steps:   50/  50  Time: 0:05:39   1 resets  Score:   1/  3 (33.33%)  TokenEff:     0.00  DoomLoop:    1
+TWCookingLevel7   Steps:   50/  50  Time: 0:05:21   0 resets  Score:   2/  5 (40.00%)  TokenEff:     0.00  DoomLoop:    1
+TWCookingLevel8   Steps:   50/  50  Time: 0:06:40   3 resets  Score:   2/  5 (40.00%)  TokenEff:     0.00  DoomLoop:    2
+TWCookingLevel9   Steps:   50/  50  Time: 0:05:55   0 resets  Score:   3/ 11 (27.27%)  TokenEff:     0.00  DoomLoop:    1
+TWCookingLevel10  Steps:   50/  50  Time: 0:09:21   0 resets  Score:   0/ 11 ( 0.00%)  TokenEff:     0.00  DoomLoop:    1
+
+Mean score (over 10 games) =   52.39% of total possible
+Total time   3088.76 seconds
+Total 0 invalid actions
+Avg. speed:     0.14 steps per second
