@@ -1,0 +1,30 @@
+{
+  "spatial": [
+    {"task": "JerichoEnv905", "difficulty": "easy", "episodes": 1},
+    {"task": "JerichoEnvAcorncourt", "difficulty": "medium", "episodes": 1},
+    {"task": "JerichoEnvAdvent", "difficulty": "medium-hard", "episodes": 1},
+    {"task": "JerichoEnvAdventureland", "difficulty": "hard", "episodes": 1},
+    {"task": "JerichoEnvAfflicted", "difficulty": "very-hard", "episodes": 1}
+  ],
+  "deductive": [
+    {"task": "ALFWorldLookAtObjInLightSeen", "difficulty": "medium", "episodes": 1},
+    {"task": "TWCookingLevel10", "difficulty": "hard", "episodes": 1},
+    {"task": "ALFWorldLookAtObjInLightUnseen", "difficulty": "medium", "episodes": 1},
+    {"task": "ScienceWorldBoil", "difficulty": "medium", "episodes": 1},
+    {"task": "ScienceWorldMelt", "difficulty": "medium", "episodes": 1}
+  ],
+  "inductive": [
+    {"task": "TWXSimonSays10", "difficulty": "easy", "episodes": 5},
+    {"task": "TWXCookingWorld", "difficulty": "medium", "episodes": 5},
+    {"task": "TWXSimonSays100", "difficulty": "hard", "episodes": 5},
+    {"task": "TWXSimonSaysWithMemory10", "difficulty": "easy", "episodes": 5},
+    {"task": "TWXSimonSays50", "difficulty": "medium", "episodes": 5}
+  ],
+  "grounded": [
+    {"task": "ALFWorldPickAndPlaceSimpleSeen", "difficulty": "easy", "episodes": 1},
+    {"task": "ALFWorldPickCleanThenPlaceInRecepSeen", "difficulty": "medium", "episodes": 1},
+    {"task": "ALFWorldPickHeatThenPlaceInRecepSeen", "difficulty": "medium-hard", "episodes": 1},
+    {"task": "ALFWorldPickCoolThenPlaceInRecepSeen", "difficulty": "hard", "episodes": 1},
+    {"task": "ALFWorldPickTwoObjAndPlaceSeen", "difficulty": "very-hard", "episodes": 1}
+  ]
+}
