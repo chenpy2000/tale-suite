@@ -1,0 +1,18 @@
+# Source: logs/old/steps_ce10_20260310_181458/steps_50/tales_MemoryAgent_vstructured_s20241001_ce10_retr0_opt0_llm1_lp1_lc1
+
+=== Checkpoint 50 ===
+TWCookingLevel1   Steps:   50/  50  Time: 0:04:47    0 resets  Score:   0/3   (  0.00%)  TokenEff:     0.00  DoomLoop:   0
+TWCookingLevel2   Steps:   50/  50  Time: 0:05:13    0 resets  Score:   0/4   (  0.00%)  TokenEff:     0.00  DoomLoop:   0
+TWCookingLevel3   Steps:   50/  50  Time: 0:04:57    0 resets  Score:   0/4   (  0.00%)  TokenEff:     0.00  DoomLoop:   0
+TWCookingLevel4   Steps:   50/  50  Time: 0:05:00    0 resets  Score:   2/3   ( 66.67%)  TokenEff:   768.50  DoomLoop:   0
+TWCookingLevel5   Steps:   50/  50  Time: 0:04:57    0 resets  Score:   0/3   (  0.00%)  TokenEff:     0.00  DoomLoop:   0
+TWCookingLevel6   Steps:   50/  50  Time: 0:05:03    0 resets  Score:   0/3   (  0.00%)  TokenEff:     0.00  DoomLoop:   0
+TWCookingLevel7   Steps:   50/  50  Time: 0:05:07    0 resets  Score:   1/5   ( 20.00%)  TokenEff:  1756.00  DoomLoop:   0
+TWCookingLevel8   Steps:   50/  50  Time: 0:05:05    1 resets  Score:   1/5   ( 20.00%)  TokenEff:  2687.00  DoomLoop:   0
+TWCookingLevel9   Steps:   50/  50  Time: 0:05:18    0 resets  Score:   1/11  (  9.09%)  TokenEff:  2951.00  DoomLoop:   0
+TWCookingLevel10  Steps:   50/  50  Time: 0:04:53    0 resets  Score:   0/11  (  0.00%)  TokenEff:     0.00  DoomLoop:   0
+
+Mean score (over 10 games) =   11.58% of total possible
+Total time    3018.66 seconds
+Total 0 invalid actions
+Avg. speed:     0.17 steps per second
