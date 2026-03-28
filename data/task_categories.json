@@ -1,0 +1,1222 @@
+{
+  "ALFWorldPickAndPlaceSimpleSeen": {
+    "primary_skill": "grounded",
+    "skill_weights": {
+      "spatial": 0.2,
+      "deductive": 0.3,
+      "inductive": 0.2,
+      "grounded": 0.3
+    },
+    "difficulty": "medium"
+  },
+  "ALFWorldLookAtObjInLightSeen": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.2,
+      "deductive": 0.3,
+      "inductive": 0.2,
+      "grounded": 0.3
+    },
+    "difficulty": "medium"
+  },
+  "ALFWorldPickCleanThenPlaceInRecepSeen": {
+    "primary_skill": "grounded",
+    "skill_weights": {
+      "spatial": 0.2,
+      "deductive": 0.3,
+      "inductive": 0.2,
+      "grounded": 0.3
+    },
+    "difficulty": "medium"
+  },
+  "ALFWorldPickHeatThenPlaceInRecepSeen": {
+    "primary_skill": "grounded",
+    "skill_weights": {
+      "spatial": 0.2,
+      "deductive": 0.3,
+      "inductive": 0.2,
+      "grounded": 0.3
+    },
+    "difficulty": "medium"
+  },
+  "ALFWorldPickCoolThenPlaceInRecepSeen": {
+    "primary_skill": "grounded",
+    "skill_weights": {
+      "spatial": 0.2,
+      "deductive": 0.3,
+      "inductive": 0.2,
+      "grounded": 0.3
+    },
+    "difficulty": "medium"
+  },
+  "ALFWorldPickTwoObjAndPlaceSeen": {
+    "primary_skill": "grounded",
+    "skill_weights": {
+      "spatial": 0.2,
+      "deductive": 0.3,
+      "inductive": 0.2,
+      "grounded": 0.3
+    },
+    "difficulty": "medium"
+  },
+  "ALFWorldPickAndPlaceSimpleUnseen": {
+    "primary_skill": "grounded",
+    "skill_weights": {
+      "spatial": 0.2,
+      "deductive": 0.3,
+      "inductive": 0.2,
+      "grounded": 0.3
+    },
+    "difficulty": "medium"
+  },
+  "ALFWorldLookAtObjInLightUnseen": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.2,
+      "deductive": 0.3,
+      "inductive": 0.2,
+      "grounded": 0.3
+    },
+    "difficulty": "medium"
+  },
+  "ALFWorldPickCleanThenPlaceInRecepUnseen": {
+    "primary_skill": "grounded",
+    "skill_weights": {
+      "spatial": 0.2,
+      "deductive": 0.3,
+      "inductive": 0.2,
+      "grounded": 0.3
+    },
+    "difficulty": "medium"
+  },
+  "ALFWorldPickHeatThenPlaceInRecepUnseen": {
+    "primary_skill": "grounded",
+    "skill_weights": {
+      "spatial": 0.2,
+      "deductive": 0.3,
+      "inductive": 0.2,
+      "grounded": 0.3
+    },
+    "difficulty": "medium"
+  },
+  "ALFWorldPickCoolThenPlaceInRecepUnseen": {
+    "primary_skill": "grounded",
+    "skill_weights": {
+      "spatial": 0.2,
+      "deductive": 0.3,
+      "inductive": 0.2,
+      "grounded": 0.3
+    },
+    "difficulty": "medium"
+  },
+  "ALFWorldPickTwoObjAndPlaceUnseen": {
+    "primary_skill": "grounded",
+    "skill_weights": {
+      "spatial": 0.2,
+      "deductive": 0.3,
+      "inductive": 0.2,
+      "grounded": 0.3
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnv905": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvAcorncourt": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvAdvent": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvAdventureland": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvAfflicted": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvAnchor": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvAwaken": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvBalances": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvBallyhoo": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvCurses": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvCutthroat": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvDeephome": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvDetective": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvDragon": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvEnchanter": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvEnter": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvGold": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvHhgg": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvHuntdark": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvInfidel": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvInhumane": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvJewel": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvKarn": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvLibrary": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvLoose": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvLostpig": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvLudicorp": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvLurking": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvMoonlit": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvMurdac": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvNight": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvOmniquest": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvPartyfoul": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvPentari": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvPlanetfall": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvPlundered": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvReverb": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvSeastalker": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvSherlock": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvSnacktime": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvSorcerer": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvSpellbrkr": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvSpirit": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvTemple": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvTrinity": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvTryst205": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvWeapon": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvWishbringer": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvYomomma": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvZenon": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvZork1": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvZork2": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvZork3": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "JerichoEnvZtuu": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.4,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldBoil": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldMelt": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldFreeze": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldChangeTheStateOfMatterOf": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldUseThermometer": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldMeasureMeltingPointKnownSubstance": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldMeasureMeltingPointUnknownSubstance": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldPowerComponent": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldPowerComponentRenewableVsNonrenewableEnergy": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldTestConductivity": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldTestConductivityOfUnknownSubstances": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldFindLivingThing": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldFindNonLivingThing": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldFindPlant": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldFindAnimal": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldGrowPlant": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldGrowFruit": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldChemistryMix": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldChemistryMixPaintSecondaryColor": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldChemistryMixPaintTertiaryColor": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldLifespanLongestLived": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldLifespanShortestLived": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldLifespanLongestLivedThenShortestLived": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldIdentifyLifeStages1": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldIdentifyLifeStages2": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldInclinedPlaneDetermineAngle": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldInclinedPlaneFrictionNamedSurfaces": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldInclinedPlaneFrictionUnnamedSurfaces": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldMendelianGeneticsKnownPlant": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "ScienceWorldMendelianGeneticsUnknownPlant": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.15,
+      "deductive": 0.4,
+      "inductive": 0.25,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "TWXCookingWorld": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.19,
+      "deductive": 0.29,
+      "inductive": 0.35,
+      "grounded": 0.17
+    },
+    "difficulty": "medium"
+  },
+  "TWXTextWorldCommonsense": {
+    "primary_skill": "grounded",
+    "skill_weights": {
+      "spatial": 0.2,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.4
+    },
+    "difficulty": "medium"
+  },
+  "TWXCoinCollector": {
+    "primary_skill": "grounded",
+    "skill_weights": {
+      "spatial": 0.3,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.3
+    },
+    "difficulty": "medium"
+  },
+  "TWXArithmetic": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.1,
+      "deductive": 0.5,
+      "inductive": 0.3,
+      "grounded": 0.1
+    },
+    "difficulty": "medium"
+  },
+  "TWXMapReader": {
+    "primary_skill": "spatial",
+    "skill_weights": {
+      "spatial": 0.5,
+      "deductive": 0.2,
+      "inductive": 0.2,
+      "grounded": 0.1
+    },
+    "difficulty": "medium"
+  },
+  "TWXSorting": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.1,
+      "deductive": 0.5,
+      "inductive": 0.3,
+      "grounded": 0.1
+    },
+    "difficulty": "medium"
+  },
+  "TWXSimonSays10": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.1,
+      "deductive": 0.1,
+      "inductive": 0.6,
+      "grounded": 0.3
+    },
+    "difficulty": "easy"
+  },
+  "TWXSimonSays50": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.1,
+      "deductive": 0.1,
+      "inductive": 0.6,
+      "grounded": 0.3
+    },
+    "difficulty": "medium"
+  },
+  "TWXSimonSays100": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.1,
+      "deductive": 0.1,
+      "inductive": 0.6,
+      "grounded": 0.3
+    },
+    "difficulty": "hard"
+  },
+  "TWXSimonSaysWithMemory10": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.1,
+      "deductive": 0.1,
+      "inductive": 0.7,
+      "grounded": 0.2
+    },
+    "difficulty": "easy"
+  },
+  "TWXSimonSaysWithMemory50": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.1,
+      "deductive": 0.1,
+      "inductive": 0.7,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "TWXSimonSaysWithMemory100": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.1,
+      "deductive": 0.1,
+      "inductive": 0.7,
+      "grounded": 0.2
+    },
+    "difficulty": "hard"
+  },
+  "TWXSimonSaysWithMemory10Verbose": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.1,
+      "deductive": 0.1,
+      "inductive": 0.7,
+      "grounded": 0.2
+    },
+    "difficulty": "easy"
+  },
+  "TWXSimonSaysWithMemory50Verbose": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.1,
+      "deductive": 0.1,
+      "inductive": 0.7,
+      "grounded": 0.2
+    },
+    "difficulty": "medium"
+  },
+  "TWXSimonSaysWithMemory100Verbose": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.1,
+      "deductive": 0.1,
+      "inductive": 0.7,
+      "grounded": 0.2
+    },
+    "difficulty": "hard"
+  },
+  "TWXPeckingOrder": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.1,
+      "deductive": 0.5,
+      "inductive": 0.3,
+      "grounded": 0.1
+    },
+    "difficulty": "medium"
+  },
+  "TWCookingLevel1": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.18,
+      "deductive": 0.28,
+      "inductive": 0.38,
+      "grounded": 0.17
+    },
+    "difficulty": "easy"
+  },
+  "TWCookingLevel2": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.19,
+      "deductive": 0.28,
+      "inductive": 0.36,
+      "grounded": 0.17
+    },
+    "difficulty": "easy"
+  },
+  "TWCookingLevel3": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.19,
+      "deductive": 0.29,
+      "inductive": 0.35,
+      "grounded": 0.17
+    },
+    "difficulty": "easy"
+  },
+  "TWCookingLevel4": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.2,
+      "deductive": 0.29,
+      "inductive": 0.34,
+      "grounded": 0.17
+    },
+    "difficulty": "medium"
+  },
+  "TWCookingLevel5": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.21,
+      "deductive": 0.29,
+      "inductive": 0.33,
+      "grounded": 0.17
+    },
+    "difficulty": "medium"
+  },
+  "TWCookingLevel6": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.21,
+      "deductive": 0.29,
+      "inductive": 0.33,
+      "grounded": 0.17
+    },
+    "difficulty": "medium"
+  },
+  "TWCookingLevel7": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.22,
+      "deductive": 0.3,
+      "inductive": 0.32,
+      "grounded": 0.17
+    },
+    "difficulty": "hard"
+  },
+  "TWCookingLevel8": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.22,
+      "deductive": 0.3,
+      "inductive": 0.31,
+      "grounded": 0.17
+    },
+    "difficulty": "hard"
+  },
+  "TWCookingLevel9": {
+    "primary_skill": "inductive",
+    "skill_weights": {
+      "spatial": 0.23,
+      "deductive": 0.3,
+      "inductive": 0.31,
+      "grounded": 0.17
+    },
+    "difficulty": "hard"
+  },
+  "TWCookingLevel10": {
+    "primary_skill": "deductive",
+    "skill_weights": {
+      "spatial": 0.23,
+      "deductive": 0.3,
+      "inductive": 0.3,
+      "grounded": 0.17
+    },
+    "difficulty": "hard"
+  }
+}

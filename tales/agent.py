@@ -6,6 +6,10 @@ class Agent:
     def act(self, obs, reward, done, info):
         raise NotImplementedError("Child class must implement this method.")
 
+    def episode_truncated(self, obs, info):
+        """Called when episode ends due to step limit (no win/lose). Override to save in-progress data."""
+        pass
+
     @property
     def uid(self):
         """Unique identifier for this agent.

@@ -2,6 +2,17 @@ import gymnasium as gym
 import numpy as np
 import scienceworld
 
+# Fix ScienceWorldEnv.__del__ AttributeError when _gateway is missing (e.g. init failure, interpreter shutdown)
+def _safe_scienceworld_del(self):
+    try:
+        if hasattr(self, "_gateway") and self._gateway is not None:
+            self.close()
+    except Exception:
+        pass
+
+
+scienceworld.ScienceWorldEnv.__del__ = _safe_scienceworld_del
+
 from . import scienceworld_data
 
 TASK_NAMES = scienceworld_data.get_task_names()

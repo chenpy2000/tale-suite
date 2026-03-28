@@ -1,0 +1,76 @@
+# Evaluation config for TWCooking-only runs.
+# Use: select_diagnostic_tasks.py --from-config config/evaluation_config.yaml
+#
+# diagnostic_tasks: One task per skill/difficulty for diagnostic benchmarks.
+#   spatial/deductive/inductive/grounded: 5 tasks each (easy → very-hard)
+#   episodes: 1 for most; 5 for inductive (higher variance)
+diagnostic_tasks:
+  spatial:
+    - {task: "TWCookingLevel1", difficulty: "easy", episodes: 1}
+    - {task: "TWCookingLevel3", difficulty: "medium", episodes: 1}
+    - {task: "TWCookingLevel5", difficulty: "medium-hard", episodes: 1}
+    - {task: "TWCookingLevel7", difficulty: "hard", episodes: 1}
+    - {task: "TWCookingLevel9", difficulty: "very-hard", episodes: 1}
+
+  deductive:
+    - {task: "TWCookingLevel2", difficulty: "easy", episodes: 1}
+    - {task: "TWCookingLevel4", difficulty: "medium", episodes: 1}
+    - {task: "TWCookingLevel6", difficulty: "medium-hard", episodes: 1}
+    - {task: "TWCookingLevel8", difficulty: "hard", episodes: 1}
+    - {task: "TWCookingLevel10", difficulty: "very-hard", episodes: 1}
+
+  inductive:
+    - {task: "TWCookingLevel1", difficulty: "easy", episodes: 5}
+    - {task: "TWCookingLevel2", difficulty: "easy", episodes: 5}
+    - {task: "TWCookingLevel4", difficulty: "medium", episodes: 5}
+    - {task: "TWCookingLevel6", difficulty: "medium-hard", episodes: 5}
+    - {task: "TWCookingLevel8", difficulty: "hard", episodes: 5}
+
+  grounded:
+    - {task: "TWCookingLevel3", difficulty: "easy", episodes: 1}
+    - {task: "TWCookingLevel5", difficulty: "medium", episodes: 1}
+    - {task: "TWCookingLevel7", difficulty: "medium-hard", episodes: 1}
+    - {task: "TWCookingLevel9", difficulty: "hard", episodes: 1}
+    - {task: "TWCookingLevel10", difficulty: "very-hard", episodes: 1}
+
+# Diagnostic run settings (used when running with --diagnostic-config)
+diagnostic:
+  nb_steps: 50
+  track_improvement: true
+
+# Hybrid agent definitions (for run_hybrid_evaluation.sh / weight sensitivity)
+# graph_vqvae: graph + VQ-VAE; memory_react: memory + ReAct; full_hybrid: all four
+hybrids:
+  graph_vqvae:
+    name: "graph-vqvae"
+    file: "agents/hybrid_agents.py"
+    default_weights:
+      graph: 0.6
+      vqvae: 0.4
+    weight_experiments:  # For sensitivity analysis
+      - {graph: 0.8, vqvae: 0.2}
+      - {graph: 0.6, vqvae: 0.4}
+      - {graph: 0.4, vqvae: 0.6}
+
+  memory_react:
+    name: "memory-react"
+    file: "agents/hybrid_agents.py"
+    default_weights:
+      memory: 0.5
+      react: 0.5
+
+  full_hybrid:
+    name: "full-hybrid"
+    file: "agents/hybrid_agents.py"
+    default_weights:
+      graph: 0.3
+      vqvae: 0.3
+      memory: 0.2
+      react: 0.2
+    configurations:  # Different skill-focused configs
+      - name: "balanced"
+        weights: {graph: 0.25, vqvae: 0.25, memory: 0.25, react: 0.25}
+      - name: "spatial-focused"
+        weights: {graph: 0.5, vqvae: 0.2, memory: 0.2, react: 0.1}
+      - name: "inductive-focused"
+        weights: {graph: 0.2, vqvae: 0.5, memory: 0.2, react: 0.1}

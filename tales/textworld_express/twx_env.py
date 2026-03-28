@@ -7,6 +7,28 @@ from . import twx_data
 TASKS = twx_data.TASKS
 
 
+def _patch_twx_destructor():
+    if getattr(twx.TextWorldExpressEnv, "_tales_safe_del", False):
+        return
+
+    original_del = getattr(twx.TextWorldExpressEnv, "__del__", None)
+
+    def _safe_del(self):
+        if original_del is None:
+            return
+        try:
+            original_del(self)
+        except (BrokenPipeError, OSError, EOFError):
+            # Third-party shutdown can fail if the Java subprocess already exited.
+            pass
+
+    twx.TextWorldExpressEnv.__del__ = _safe_del
+    twx.TextWorldExpressEnv._tales_safe_del = True
+
+
+_patch_twx_destructor()
+
+
 class TextWorldExpressEnv(gym.Env):
 
     def __init__(
@@ -62,4 +84,12 @@ class TextWorldExpressEnv(gym.Env):
         return obs, reward, done, info
 
     def close(self):
-        self.env.close()
+        if self.env is None:
+            return
+
+        try:
+            self.env.close()
+        except (BrokenPipeError, OSError, EOFError):
+            pass
+        finally:
+            self.env = None

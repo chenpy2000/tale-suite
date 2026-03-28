@@ -1,0 +1,196 @@
+{
+  "diagnostic_scores": {
+    "spatial": 0.78,
+    "deductive": 0.45,
+    "inductive": 0.52,
+    "grounded": 0.61
+  },
+  "transfer_analysis": {
+    "r_squared": -0.3258,
+    "mse": 0.1425,
+    "mae": 0.3582,
+    "predictions": [
+      {
+        "task": "TWCookingLevel2",
+        "skill_weights": {
+          "spatial": 0.19,
+          "deductive": 0.28,
+          "inductive": 0.36,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.5651,
+        "actual_score": 0.25,
+        "error": -0.3151,
+        "skill_contributions": {
+          "spatial": 0.1482,
+          "deductive": 0.126,
+          "inductive": 0.1872,
+          "grounded": 0.1037
+        }
+      },
+      {
+        "task": "TWCookingLevel9",
+        "skill_weights": {
+          "spatial": 0.23,
+          "deductive": 0.3,
+          "inductive": 0.31,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.5793,
+        "actual_score": 0.1818,
+        "error": -0.3975,
+        "skill_contributions": {
+          "spatial": 0.1794,
+          "deductive": 0.135,
+          "inductive": 0.1612,
+          "grounded": 0.1037
+        }
+      },
+      {
+        "task": "TWCookingLevel3",
+        "skill_weights": {
+          "spatial": 0.19,
+          "deductive": 0.29,
+          "inductive": 0.35,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.5644,
+        "actual_score": 0.25,
+        "error": -0.3144,
+        "skill_contributions": {
+          "spatial": 0.1482,
+          "deductive": 0.1305,
+          "inductive": 0.182,
+          "grounded": 0.1037
+        }
+      },
+      {
+        "task": "TWCookingLevel10",
+        "skill_weights": {
+          "spatial": 0.23,
+          "deductive": 0.3,
+          "inductive": 0.3,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.5741,
+        "actual_score": 0.0909,
+        "error": -0.4832,
+        "skill_contributions": {
+          "spatial": 0.1794,
+          "deductive": 0.135,
+          "inductive": 0.156,
+          "grounded": 0.1037
+        }
+      },
+      {
+        "task": "TWCookingLevel1",
+        "skill_weights": {
+          "spatial": 0.18,
+          "deductive": 0.28,
+          "inductive": 0.37,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.5625,
+        "actual_score": 1.0,
+        "error": 0.4375,
+        "skill_contributions": {
+          "spatial": 0.1404,
+          "deductive": 0.126,
+          "inductive": 0.1924,
+          "grounded": 0.1037
+        }
+      },
+      {
+        "task": "TWCookingLevel6",
+        "skill_weights": {
+          "spatial": 0.21,
+          "deductive": 0.29,
+          "inductive": 0.33,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.5696,
+        "actual_score": 0.3333,
+        "error": -0.2363,
+        "skill_contributions": {
+          "spatial": 0.1638,
+          "deductive": 0.1305,
+          "inductive": 0.1716,
+          "grounded": 0.1037
+        }
+      },
+      {
+        "task": "TWCookingLevel8",
+        "skill_weights": {
+          "spatial": 0.22,
+          "deductive": 0.3,
+          "inductive": 0.31,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.5715,
+        "actual_score": 0.4,
+        "error": -0.1715,
+        "skill_contributions": {
+          "spatial": 0.1716,
+          "deductive": 0.135,
+          "inductive": 0.1612,
+          "grounded": 0.1037
+        }
+      },
+      {
+        "task": "TWCookingLevel7",
+        "skill_weights": {
+          "spatial": 0.22,
+          "deductive": 0.3,
+          "inductive": 0.32,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.5767,
+        "actual_score": 1.0,
+        "error": 0.4233,
+        "skill_contributions": {
+          "spatial": 0.1716,
+          "deductive": 0.135,
+          "inductive": 0.1664,
+          "grounded": 0.1037
+        }
+      },
+      {
+        "task": "TWCookingLevel5",
+        "skill_weights": {
+          "spatial": 0.21,
+          "deductive": 0.29,
+          "inductive": 0.33,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.5696,
+        "actual_score": 0.0,
+        "error": -0.5696,
+        "skill_contributions": {
+          "spatial": 0.1638,
+          "deductive": 0.1305,
+          "inductive": 0.1716,
+          "grounded": 0.1037
+        }
+      },
+      {
+        "task": "TWCookingLevel4",
+        "skill_weights": {
+          "spatial": 0.2,
+          "deductive": 0.29,
+          "inductive": 0.34,
+          "grounded": 0.17
+        },
+        "predicted_score": 0.567,
+        "actual_score": 0.3333,
+        "error": -0.2337,
+        "skill_contributions": {
+          "spatial": 0.156,
+          "deductive": 0.1305,
+          "inductive": 0.1768,
+          "grounded": 0.1037
+        }
+      }
+    ]
+  },
+  "agent": "test-agent"
+}
