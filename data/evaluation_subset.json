@@ -1,0 +1,54 @@
+{
+  "envs": [
+    "JerichoEnv905",
+    "JerichoEnvAcorncourt",
+    "JerichoEnvAdvent",
+    "JerichoEnvAdventureland",
+    "JerichoEnvAfflicted",
+    "ALFWorldLookAtObjInLightSeen",
+    "TWCookingLevel10",
+    "ALFWorldLookAtObjInLightUnseen",
+    "ScienceWorldBoil",
+    "ScienceWorldMelt",
+    "TWXSimonSays10",
+    "TWXCookingWorld",
+    "TWXSimonSays100",
+    "TWXSimonSaysWithMemory10",
+    "TWXSimonSays50",
+    "ALFWorldPickAndPlaceSimpleSeen",
+    "ALFWorldPickCleanThenPlaceInRecepSeen",
+    "ALFWorldPickHeatThenPlaceInRecepSeen",
+    "ALFWorldPickCoolThenPlaceInRecepSeen",
+    "ALFWorldPickTwoObjAndPlaceSeen"
+  ],
+  "by_skill": {
+    "spatial": [
+      "JerichoEnv905",
+      "JerichoEnvAcorncourt",
+      "JerichoEnvAdvent",
+      "JerichoEnvAdventureland",
+      "JerichoEnvAfflicted"
+    ],
+    "deductive": [
+      "ALFWorldLookAtObjInLightSeen",
+      "TWCookingLevel10",
+      "ALFWorldLookAtObjInLightUnseen",
+      "ScienceWorldBoil",
+      "ScienceWorldMelt"
+    ],
+    "inductive": [
+      "TWXSimonSays10",
+      "TWXCookingWorld",
+      "TWXSimonSays100",
+      "TWXSimonSaysWithMemory10",
+      "TWXSimonSays50"
+    ],
+    "grounded": [
+      "ALFWorldPickAndPlaceSimpleSeen",
+      "ALFWorldPickCleanThenPlaceInRecepSeen",
+      "ALFWorldPickHeatThenPlaceInRecepSeen",
+      "ALFWorldPickCoolThenPlaceInRecepSeen",
+      "ALFWorldPickTwoObjAndPlaceSeen"
+    ]
+  }
+}

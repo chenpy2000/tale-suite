@@ -1,7 +1,17 @@
 import argparse
+import os
+import json
+import urllib.request
 
 import llm
 import numpy as np
+
+# Patch llm Response.text() to handle None chunks (API can return content: null)
+_llm_response = llm.Response
+_orig_text = _llm_response.text
+def _safe_text(self):
+    return "".join(c if c is not None else "" for c in self._chunks)
+_llm_response.text = _safe_text
 from tenacity import (
     retry,
     retry_if_exception,
@@ -19,6 +29,35 @@ from tales.utils import (
     messages2conversation,
 )
 
+
+
+def _maybe_configure_openai_env(kwargs):
+    api_url = kwargs.get("llm_api_url") or kwargs.get("api_url")
+    api_key = kwargs.get("llm_api_key") or kwargs.get("api_key") or kwargs.get("key")
+    api_key_env = kwargs.get("llm_api_key_env")
+    if api_key_env and not api_key:
+        api_key = os.environ.get(api_key_env)
+
+    if api_url:
+        base = api_url.rstrip("/")
+        if base.endswith("/v1/chat/completions"):
+            base = base[: -len("/v1/chat/completions")]
+        if not base.endswith("/v1"):
+            base = base + "/v1"
+        os.environ["OPENAI_BASE_URL"] = base
+        os.environ["OPENAI_API_BASE"] = base
+
+    if api_key:
+        os.environ["OPENAI_API_KEY"] = api_key
+
+
+
+class _SimpleResponse:
+    def __init__(self, content):
+        self._content = content or ""
+    def text(self):
+        return self._content
+
 SYSTEM_PROMPT = (
     "You are playing a text-based game and your goal is to finish it with the highest score."
     " Upon reading the text observation, provide a *single* short phrase to interact with the game, e.g. `get lamp` (without the backticks)."
@@ -29,8 +68,22 @@ SYSTEM_PROMPT = (
 class LLMAgent(tales.Agent):
 
     def __init__(self, *args, **kwargs):
+        _maybe_configure_openai_env(kwargs)
         self.llm = kwargs["llm"]
-        self.model = llm.get_model(self.llm)
+        # Triton settings (OpenAI-compatible endpoint)
+        self.llm_api_url = (kwargs.get("llm_api_url") or kwargs.get("api_url") or "").rstrip("/")
+        if self.llm_api_url and not self.llm_api_url.endswith("/v1/chat/completions"):
+            self.llm_api_url = self.llm_api_url.rstrip("/") + "/v1/chat/completions"
+        self.llm_model = kwargs.get("llm_model") or self.llm
+        self.llm_api_key = kwargs.get("llm_api_key") or kwargs.get("api_key") or kwargs.get("key")
+        if kwargs.get("llm_api_key_env") and not self.llm_api_key:
+            self.llm_api_key = os.environ.get(kwargs.get("llm_api_key_env"))
+
+        try:
+            self.model = llm.get_model(self.llm)
+        except Exception:
+            # Fallback model for token counting when llm name is unknown to the llm library
+            self.model = llm.get_model(llm.DEFAULT_MODEL)
         self.token_counter = get_token_counter(self.model)
         self.allows_system_prompt = self.llm not in ["o1-mini", "o1-preview"]
 
@@ -82,6 +135,30 @@ class LLMAgent(tales.Agent):
         return response
 
     def _llm_call_from_messages(self, messages, *args, **kwargs):
+        # Triton/OpenAI-compatible path if configured
+        if self.llm_api_url and self.llm_api_key and self.llm_model:
+            payload = {
+                "model": self.llm_model,
+                "messages": messages,
+                "temperature": kwargs.get("temperature", self.act_temp),
+                "max_tokens": kwargs.get("max_tokens", 100),
+                "seed": kwargs.get("seed", self.seed),
+                "stream": False,
+            }
+            req = urllib.request.Request(
+                self.llm_api_url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {self.llm_api_key}",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            content = ((data.get("choices") or [{}])[0].get("message") or {}).get("content")
+            return _SimpleResponse(content)
+
         conversation = messages2conversation(self.model, messages)
         prompt = messages[-1]["content"]
         system = messages[0]["content"] if self.allows_system_prompt else None
@@ -150,7 +227,7 @@ class LLMAgent(tales.Agent):
 
         if not self.conversation:
             # Merge all messages into a single message except for the system.
-            content = "".join([msg["content"] for msg in messages[1:]])
+            content = "".join([(msg.get("content") or "") for msg in messages[1:]])
             messages = messages[:1] + [{"role": "user", "content": content}]
 
         if not self.allows_system_prompt:
@@ -192,6 +269,11 @@ def build_argparser(parser=None):
         required=True,
         action=argparse.BooleanOptionalAction,
         help="Enable conversation mode. Otherwise, use single prompt.",
+    )
+    group.add_argument(
+        "--key",
+        default=None,
+        help="API key (overrides env). Use for Triton/OpenAI models.",
     )
 
     return parser

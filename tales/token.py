@@ -1,4 +1,5 @@
 import os
+import warnings
 from typing import Optional
 
 import tiktoken
@@ -19,13 +20,29 @@ def get_token_counter(model: Optional[Model] = None):
     elif "gemini" in model.model_id or "gemma" in model.model_id:
         return GeminiTokenCounter(model)
 
+    # Custom OpenAI-compatible endpoints often use model IDs that don't map to
+    # HuggingFace repositories. Avoid failing on tokenizer lookup in that case.
+    if getattr(model, "api_base", None):
+        try:
+            return OpenAITokenCounter(model.model_id)
+        except KeyError:
+            return OpenAITokenCounter("gpt-4o")
+
     try:
         return OpenAITokenCounter(model.model_id)
     except KeyError:
         pass
 
     # Try to load from transformers.
-    return HuggingFaceTokenCounter(model.model_id)
+    try:
+        return HuggingFaceTokenCounter(model.model_id)
+    except ValueError:
+        warnings.warn(
+            f"Tokenizer not found for model '{model.model_id}'. "
+            "Falling back to gpt-4o tokenizer for token counting.",
+            UserWarning,
+        )
+        return OpenAITokenCounter("gpt-4o")
 
 
 class TokenCounter:

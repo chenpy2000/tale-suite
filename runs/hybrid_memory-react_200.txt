@@ -1,0 +1,28 @@
+# Source: logs/tales_memory-react-m0.3-r0.7
+
+=== Checkpoint 200 ===
+ALFWorldLookAtObjInLightSeen           Steps:   20/ 200  Time: 0:02:25    0 resets  Score:   1/1   (100.00%)  TokenEff:     0.00  DoomLoop:   1
+ALFWorldLookAtObjInLightUnseen         Steps:   33/ 200  Time: 0:03:54    0 resets  Score:   1/1   (100.00%)  TokenEff:     0.00  DoomLoop:   3
+ALFWorldPickAndPlaceSimpleSeen         Steps:  200/ 200  Time: 0:22:29    0 resets  Score:   0/1   (  0.00%)  TokenEff:     0.00  DoomLoop:  10
+ALFWorldPickCleanThenPlaceInRecepSeen  Steps:  200/ 200  Time: 0:23:15    0 resets  Score:   0/1   (  0.00%)  TokenEff:     0.00  DoomLoop:   6
+ALFWorldPickCoolThenPlaceInRecepSeen   Steps:  200/ 200  Time: 0:27:32    0 resets  Score:   0/1   (  0.00%)  TokenEff:     0.00  DoomLoop:  13
+ALFWorldPickHeatThenPlaceInRecepSeen   Steps:   90/ 200  Time: 0:09:50    0 resets  Score:   1/1   (100.00%)  TokenEff:     0.00  DoomLoop:   3
+ALFWorldPickTwoObjAndPlaceSeen         Steps:   11/ 200  Time: 0:00:58    0 resets  Score:   1/1   (100.00%)  TokenEff:     0.00  DoomLoop:   0
+JerichoEnv905                          Steps:   24/ 200  Time: 0:28:05    1 resets  Score:   0/1   (  0.00%)  TokenEff:     0.00  DoomLoop:   0
+JerichoEnvAcorncourt                   Steps:  201/ 200  Time: 0:32:12    0 resets  Score:  10/30  ( 33.33%)  TokenEff:     0.00  DoomLoop:   0
+JerichoEnvAdvent                       Steps:  200/ 200  Time: 0:26:28    0 resets  Score:  36/350 ( 10.29%)  TokenEff:     0.00  DoomLoop:   0
+JerichoEnvAdventureland                Steps:    9/ 200  Time: 0:22:51    4 resets  Score:  21/100 ( 21.00%)  TokenEff:     0.00  DoomLoop:   0
+JerichoEnvAfflicted                    Steps:   28/ 200  Time: 0:28:43    4 resets  Score:   0/75  (  0.00%)  TokenEff:     0.00  DoomLoop:   9
+ScienceWorldBoil                       Steps:   45/ 200  Time: 0:29:44   12 resets  Score:   2/100 (  2.00%)  TokenEff:     0.00  DoomLoop:   0
+ScienceWorldMelt                       Steps:    8/ 200  Time: 0:31:18   15 resets  Score:   2/100 (  2.00%)  TokenEff:     0.00  DoomLoop:   0
+TWCookingLevel10                       Steps:   19/ 200  Time: 0:21:34    6 resets  Score:   4/11  ( 36.36%)  TokenEff:     0.00  DoomLoop:   0
+TWXCookingWorld                        Steps:    6/ 200  Time: 0:25:56   18 resets  Score:  57/100 ( 57.00%)  TokenEff:     0.00  DoomLoop:   0
+TWXSimonSays10                         Steps:   10/ 200  Time: 0:00:54    0 resets  Score: 100/100 (100.00%)  TokenEff:     0.00  DoomLoop:   0
+TWXSimonSays100                        Steps:   25/ 200  Time: 0:20:25   16 resets  Score:  88/100 ( 88.00%)  TokenEff:     0.00  DoomLoop:   0
+TWXSimonSays50                         Steps:    1/ 200  Time: 0:26:54   63 resets  Score:  44/100 ( 44.00%)  TokenEff:     0.00  DoomLoop:   0
+TWXSimonSaysWithMemory10               Steps:    1/ 200  Time: 0:36:26   153 resets  Score:  20/100 ( 20.00%)  TokenEff:     0.00  DoomLoop:   1
+
+Mean score (over 20 games) =   40.70% of total possible
+Total time   25312.87 seconds
+Total 0 invalid actions
+Avg. speed:     0.05 steps per second

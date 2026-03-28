@@ -1,10 +1,14 @@
+import os
+
+# Suppress HuggingFace tokenizers fork warning (env creation can fork after tokenizer load)
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
 import argparse
 import datetime
 import glob
 import importlib
 import json
 import logging
-import os
 import sys
 import time
 from functools import partial
@@ -18,12 +22,13 @@ from tqdm import tqdm
 
 import tales
 from tales.logger import log, setup_logging
+from tales.metrics import compute_doom_loop_count, compute_token_efficiency
 from tales.utils import NumpyEncoder
 
 os.environ["WANDB_MODE"] = "disabled"
 
 
-def evaluate(agent, env_name, args):
+def evaluate(agent, env_name, args, seed=None):
     env_params = (
         f"a{int(args.admissible_commands)}_s{args.game_seed}_steps{args.nb_steps}"
     )
@@ -46,6 +51,7 @@ def evaluate(agent, env_name, args):
         if not args.force_failed or summary["status"] == "finished":
             log.info(colored("Skipped, already done.", "yellow"))
             log.removeHandler(fh)
+            fh.close()
             return summary
 
     run_name = f"{env_name} - {agent.uid}"
@@ -59,6 +65,7 @@ def evaluate(agent, env_name, args):
             if wandb_run.state in ("finished", "running"):
                 log.info(colored("Skipped, already exists.", "yellow"))
                 log.removeHandler(fh)
+                fh.close()
                 summary = {
                     "status": wandb_run.state,
                     "env_name": env_name,
@@ -106,7 +113,8 @@ def evaluate(agent, env_name, args):
     log.debug(f"Playing {env_name}")
 
     start_time = time.time()
-    obs, info = env.reset(seed=args.game_seed)
+    reset_seed = seed if seed is not None else args.game_seed
+    obs, info = env.reset(seed=reset_seed)
 
     agent = agent.new()
     agent.reset(obs, info, env_name)
@@ -126,6 +134,17 @@ def evaluate(agent, env_name, args):
     score = 0
     done = False
     results = []
+    score_checkpoints = {}
+    checkpoint_steps = {5, 10, 50, 100, 150, 200}
+
+    # fmt: off
+    columns = [
+        "Step", "Score", "Max Score", "Normalized Score", "Moves",
+        "Observation", "Action", "Feedback",
+        "Prompt", "Response", "Thinking",
+        "Token Usage", "Prompt Tokens", "Response Tokens", "Thinking Tokens",
+    ]
+    # fmt: on
 
     wandb_run.log(
         {
@@ -148,12 +167,20 @@ def evaluate(agent, env_name, args):
                 f"Score: {info['score']}/{info['max_score']} ({info['score']/info['max_score']:.1%})"
             )
             action, stats = agent.act(obs, score, done, info)
+            stats = stats or {}
+            prompt_tokens = stats.get("nb_tokens_prompt", 0)
+            response_tokens = stats.get("nb_tokens_response", 0)
+            thinking_tokens = stats.get("nb_tokens_thinking", 0)
+            total_tokens = stats.get(
+                "nb_tokens", prompt_tokens + response_tokens + thinking_tokens
+            )
             log.debug(colored(f"> {action}", "green"))
 
             if args.debug:
                 breakpoint()
 
             prev_obs = obs
+            admissible_before_action = list(info.get("admissible_commands") or [])
 
             # Force one action per step.
             if "\n" in action.strip():
@@ -168,10 +195,11 @@ def evaluate(agent, env_name, args):
             highscore = max(score, highscore)
             norm_highscore = highscore / max_score
 
+
             if (
                 args.admissible_commands
-                and info["admissible_commands"]
-                and action not in info["admissible_commands"]
+                and admissible_before_action
+                and action not in admissible_before_action
             ):
                 nb_invalid_actions += 1
 
@@ -186,8 +214,8 @@ def evaluate(agent, env_name, args):
                     "episode/highscore": highscore,
                     "episode/normalized_score": norm_score,
                     "episode/normalized_highscore": norm_highscore,
-                    "episode/token_usage": stats["nb_tokens"],
-                    "episode/token_usage_thinking": stats.get("nb_tokens_thinking", 0),
+                    "episode/token_usage": total_tokens,
+                    "episode/token_usage_thinking": thinking_tokens,
                 },
                 step=step,
             )
@@ -196,15 +224,33 @@ def evaluate(agent, env_name, args):
             results.append([
                 step, score, max_score, norm_score, moves,
                 prev_obs, action, feedback,
-                stats["prompt"], stats["response"], stats.get("thinking"),
-                stats["nb_tokens"], stats["nb_tokens_prompt"], stats["nb_tokens_response"], stats.get("nb_tokens_thinking", 0),
+                stats.get("prompt"), stats.get("response"), stats.get("thinking"),
+                total_tokens, prompt_tokens, response_tokens, thinking_tokens,
             ])
             # fmt: on
+
+            if step in checkpoint_steps and step not in score_checkpoints:
+                tmp_df = pd.DataFrame(results, columns=columns)
+                score_checkpoints[step] = {
+                    # Record both current and best-so-far scores at this checkpoint.
+                    "current_score": score,
+                    "current_normalized_score": norm_score,
+                    "score": highscore,
+                    "normalized_score": norm_highscore,
+                    "highscore": highscore,
+                    "normalized_highscore": norm_highscore,
+                    "max_score": max_score,
+                    "moves": moves,
+                    "elapsed_seconds": time.time() - start_time,
+                    "doom_loop_count": compute_doom_loop_count(tmp_df),
+                }
 
             if not done:
                 log.debug(obs)
 
             if done:
+                # Let agent record final step and save (e.g. trajectory collectors)
+                action, stats = agent.act(obs, score, done, info)
                 if info["won"]:
                     nb_wins += 1
                     if highscore == max_score:
@@ -218,9 +264,14 @@ def evaluate(agent, env_name, args):
                 obs, info = env.reset()
                 obs = last_obs + "\n\n-= Restarting =-\n" + obs
                 agent.reset(obs, info, env_name)
+                done = False
                 nb_resets += 1
 
                 log.debug(f"{obs}")
+
+        # Episodes truncated by step limit never get done=True; notify agent
+        if not done and hasattr(agent, "episode_truncated"):
+            agent.episode_truncated(obs, info)
 
         status = "finished"
 
@@ -256,15 +307,16 @@ def evaluate(agent, env_name, args):
         "duration": time.time() - start_time,
     }
 
-    # fmt: off
-    columns = [
-        "Step", "Score", "Max Score", "Normalized Score", "Moves",
-        "Observation", "Action", "Feedback",
-        "Prompt", "Response", "Thinking",
-        "Token Usage", "Prompt Tokens", "Response Tokens", "Thinking Tokens",
-    ]
-    # fmt: on
     df = pd.DataFrame(results, columns=columns)
+
+    # Compute operational efficiency and doom loop metrics
+    total_tokens = df["Token Usage"].sum()
+    token_efficiency = compute_token_efficiency(total_tokens, highscore)
+    doom_loop_count = compute_doom_loop_count(df)
+
+    stats["token_efficiency"] = token_efficiency
+    stats["doom_loop_count"] = doom_loop_count
+
     df.to_json(rollouts_file, orient="records", lines=True)
 
     wandb_stats = {
@@ -282,6 +334,8 @@ def evaluate(agent, env_name, args):
         "final/Game Max Score": stats["max_score"],
         "final/Normalized Score": stats["norm_score"],
         "final/Duration": stats["duration"],
+        "final/Token Efficiency": stats["token_efficiency"],
+        "final/Doom Loop Count": stats["doom_loop_count"],
     }
     wandb_run.log(
         {"episode/rollout": wandb.Table(dataframe=df), **wandb_stats},
@@ -295,6 +349,7 @@ def evaluate(agent, env_name, args):
         "env_params": env_params,
         "wandb_run_id": wandb_run.id,
         "wandb_url": wandb_run.url,
+        "score_checkpoints": score_checkpoints,
         **stats,
         **wandb_stats,
     }
@@ -309,7 +364,105 @@ def evaluate(agent, env_name, args):
     wandb_run.finish(exit_code=int(status != "finished"))
 
     log.removeHandler(fh)
+    fh.close()
     return summary
+
+
+def _run_diagnostic_task(agent, task_entry, args, skill):
+    """Run one diagnostic task. Returns score(s) and metadata."""
+    task_name = task_entry["task"]
+    difficulty = task_entry.get("difficulty", "medium")
+    episodes = task_entry.get("episodes", 1)
+
+    if episodes == 1:
+        summary = evaluate(agent, task_name, args)
+        score = summary.get("norm_score", summary.get("highscore", 0) / max(summary.get("max_score", 1), 1))
+        return {"task": task_name, "score": score, "difficulty": difficulty}
+    else:
+        episode_scores = []
+        for ep in range(episodes):
+            summary = evaluate(agent, task_name, args, seed=ep)
+            norm = summary.get("norm_score", summary.get("highscore", 0) / max(summary.get("max_score", 1), 1))
+            episode_scores.append(round(norm, 4))
+        avg_first = sum(episode_scores[:2]) / 2 if len(episode_scores) >= 2 else episode_scores[0]
+        avg_last = sum(episode_scores[-2:]) / 2 if len(episode_scores) >= 2 else episode_scores[-1]
+        improvement = (avg_last - avg_first) / avg_first if avg_first > 0 else 0
+        return {
+            "task": task_name,
+            "episode_scores": episode_scores,
+            "improvement": round(improvement, 4),
+            "difficulty": difficulty,
+        }
+
+
+def diagnostic_benchmark(agent, args):
+    """Run diagnostic evaluation from diagnostic_tasks.json."""
+    tasks_path = args.diagnostic_tasks_path
+    path = pjoin(os.getcwd(), tasks_path) if not os.path.isabs(tasks_path) else tasks_path
+    if not os.path.exists(path):
+        log.critical(f"Diagnostic tasks file not found: {path}")
+        sys.exit(1)
+
+    with open(path) as f:
+        diagnostic_tasks = json.load(f)
+
+    skills_to_run = [args.diagnostic_skill] if args.diagnostic_skill != "all" else list(diagnostic_tasks.keys())
+    log.critical(f"Diagnostic evaluation: skills={skills_to_run}")
+
+    results = {}
+    skill_profile = {}
+
+    for skill in skills_to_run:
+        if skill not in diagnostic_tasks:
+            continue
+        task_entries = diagnostic_tasks[skill]
+        skill_results = []
+        for entry in tqdm(task_entries, desc=f"  {skill}", unit="task", leave=False):
+            out = _run_diagnostic_task(agent, entry, args, skill)
+            skill_results.append(out)
+
+        if skill == "inductive" and skill_results and "episode_scores" in skill_results[0]:
+            scores = [r.get("score", sum(r["episode_scores"]) / len(r["episode_scores"])) for r in skill_results]
+            for r in skill_results:
+                if "episode_scores" in r:
+                    r["score"] = sum(r["episode_scores"]) / len(r["episode_scores"])
+            avg_score = sum(r["score"] for r in skill_results) / len(skill_results)
+            improvements = [r["improvement"] for r in skill_results if "improvement" in r]
+            improvement_rate = sum(improvements) / len(improvements) if improvements else 0
+            results[skill] = {
+                "average_score": round(avg_score, 4),
+                "improvement_rate": round(improvement_rate, 4),
+                "tasks": skill_results,
+            }
+            skill_profile[skill] = round(avg_score, 4)
+        else:
+            scores = [r["score"] for r in skill_results]
+            avg_score = sum(scores) / len(scores) if scores else 0
+            results[skill] = {
+                "average_score": round(avg_score, 4),
+                "tasks": skill_results,
+            }
+            skill_profile[skill] = round(avg_score, 4)
+
+    agent_name = getattr(agent, "uid", args.subcommand or "unknown")
+    output = {
+        "agent": agent_name,
+        "diagnostic_results": results,
+        "skill_profile": skill_profile,
+    }
+
+    out_path = args.output_metrics
+    if not out_path:
+        out_path = pjoin(args.log_dir, f"{agent_name.replace('/', '-')}_diagnostic.json")
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+    with open(out_path, "w") as f:
+        json.dump(output, f, indent=2, cls=NumpyEncoder)
+    log.critical(colored(f"Diagnostic metrics written to {out_path}", "magenta"))
+
+    for skill, data in results.items():
+        avg = data["average_score"]
+        extra = f" improvement={data.get('improvement_rate', 'n/a')}" if "improvement_rate" in data else ""
+        log.critical(f"  {skill}: avg_score={avg:.2%}{extra}")
 
 
 def benchmark(agent, args):
@@ -332,12 +485,21 @@ def benchmark(agent, args):
         total_steps += summary["nb_steps"]
         total_invalid += summary["nb_invalid_actions"]
 
+        token_eff = summary.get(
+            "token_efficiency", summary.get("final/Token Efficiency")
+        )
+        doom_loop = summary.get("doom_loop_count", summary.get("final/Doom Loop Count"))
+        token_eff_str = f"{float(token_eff):8.2f}" if token_eff is not None else "   n/a  "
+        doom_loop_str = f"{int(doom_loop):4d}" if doom_loop is not None else " n/a"
+
         msg = (
             f"{env.ljust(max_env_name)}"
             f"  Steps: {summary['nb_steps']:4d}/{args.nb_steps:4d}"
             f"  Time: {datetime.timedelta(seconds=int(summary['duration']))}"
             f"{summary['nb_resets']:4d} resets"
             f"  Score: {summary['highscore']:3d}/{summary['max_score']:3d} ({summary['norm_score']:6.2%})"
+            f"  TokenEff: {token_eff_str}"
+            f"  DoomLoop: {doom_loop_str}"
         )
 
         log.critical(msg)
@@ -414,7 +576,15 @@ def _maybe_load_agent_module():
                 f"{agent_dirname}.{agent_filename}", agent_file
             )
             module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
+            sys.modules[f"{agent_dirname}.{agent_filename}"] = module
+            try:
+                spec.loader.exec_module(module)
+            except ValueError as e:
+                # If the agent is already registered, that's fine.
+                if "already registered" in str(e):
+                    print(f"Agent from {agent_file} was already registered, skipping.")
+                else:
+                    raise
 
 
 def parse_args():
@@ -445,6 +615,19 @@ def parse_args():
 
         general_group.add_argument("--log-dir", default="logs",
                             help="Folder where to save verbose log information.")
+
+        # Diagnostic evaluation (skill-specific tasks from diagnostic_tasks.json)
+        general_group.add_argument("--diagnostic-tests", dest="diagnostic_tasks_path", nargs="?",
+                            const="data/diagnostic_tasks.json", default=None,
+                            metavar="PATH",
+                            help="Run diagnostic evaluation. Path to diagnostic_tasks.json (default: data/diagnostic_tasks.json).")
+        general_group.add_argument("--diagnostic-tasks", type=str, default=None, metavar="PATH",
+                            help="Path to diagnostic_tasks.json (default: data/diagnostic_tasks.json).")
+        general_group.add_argument("--diagnostic-skill", choices=["spatial", "deductive", "inductive", "grounded", "all"],
+                            default="all",
+                            help="Skill category to evaluate in diagnostic mode (default: all).")
+        general_group.add_argument("--output-metrics", type=str, default=None,
+                            help="Path to write diagnostic metrics JSON (default: logs/<agent>_diagnostic.json).")
 
         general_group.add_argument("--wandb", action="store_true",
                             help="Log to wandb")
@@ -498,6 +681,10 @@ def main():
     agent = Agent(**vars(args))
     agent.new = partial(Agent, **vars(args))
 
+    if args.subcommand in ("llm-vqvae", "llm-triton") and not args.admissible_commands:
+        log.warning(f"{args.subcommand} needs admissible commands; enabling --admissible-commands")
+        args.admissible_commands = True
+
     # Create logging directory.
     args.log_dir = pjoin(args.log_dir, f"tales_{agent.uid.replace('/', '-')}")
     os.makedirs(args.log_dir, exist_ok=True)
@@ -509,6 +696,15 @@ def main():
     if args.wandb:
         os.environ["WANDB_MODE"] = "online"
         os.environ.pop("WANDB_RUN_ID", None)
+
+    if args.diagnostic_tasks_path is not None or getattr(args, "diagnostic_tasks", None) is not None:
+        args.diagnostic_tasks_path = (
+            getattr(args, "diagnostic_tasks", None)
+            or args.diagnostic_tasks_path
+            or "data/diagnostic_tasks.json"
+        )
+        diagnostic_benchmark(agent, args)
+        return
 
     args.envs = args.envs or tales.envs
     args.envs = [  # Expand tasks into their respective environments.
